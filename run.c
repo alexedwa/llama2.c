@@ -7,6 +7,7 @@
 #include <math.h>
 #include <string.h>
 #include <fcntl.h>
+#include <immintrin.h>
 #if defined _WIN32
     #include "win.h"
 #else
@@ -215,16 +216,31 @@ void softmax(float* x, int size) {
 }
 
 void matmul(float* xout, float* x, float* w, int n, int d) {
+    __m256 num1, num2, num3, num4;
+    __m128 xmm1;
     // W (d,n) @ x (n,) -> xout (d,)
     // by far the most amount of time is spent inside this little function
     int i;
-    #pragma omp parallel for private(i)
+    //#pragma omp parallel for private(i)
     for (i = 0; i < d; i++) {
-        float val = 0.0f;
-        for (int j = 0; j < n; j++) {
-            val += w[i * n + j] * x[j];
+        //float val = 0.0f;
+        num1 = _mm256_set_ps(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        for (int j = 0; j < n; j+=8) {
+            // val += w[i * n + j] * x[j];
+
+            num2 = _mm256_loadu_ps(&w[i * n + j]);
+            num3 = _mm256_loadu_ps(&x[j]);
+            num1 = _mm256_fmadd_ps(num2, num3, num1);
+
         }
-        xout[i] = val;
+        num4 = _mm256_permute2f128_ps(num1, num1, 1);
+        num1 = _mm256_add_ps(num1, num4);
+        num1 = _mm256_hadd_ps(num1, num1);
+        num1 = _mm256_hadd_ps(num1, num1);
+        xmm1 = _mm256_extractf128_ps(num1, 0);
+
+        _mm_store_ss(&xout[i], xmm1);
+        //xout[i] = val;
     }
 }
 
@@ -280,7 +296,7 @@ float* forward(Transformer* transformer, int token, int pos) {
 
         // multihead attention. iterate over all heads
         int h;
-        #pragma omp parallel for private(h)
+        //#pragma omp parallel for private(h)
         for (h = 0; h < p->n_heads; h++) {
             // get the query vector for this head
             float* q = s->q + h * head_size;
