@@ -5,13 +5,13 @@ CC = gcc
 # the most basic way of building that is most likely to work on most systems
 .PHONY: run
 run: run.c
-	$(CC) -O3 -o run run.c -lm
-	$(CC) -O3 -o runq runq.c -lm
+	$(CC) run.c -O2 -o run -lm -g
+	$(CC) runq.c -O0 -o runq -lm -g
 
 # useful for a debug build, can then e.g. analyze with valgrind, example:
 # $ valgrind --leak-check=full ./run out/model.bin -n 3
 rundebug: run.c
-	$(CC) -g -o run run.c -lm
+	$(CC) -g -o run run.c -lm 
 	$(CC) -g -o runq runq.c -lm
 
 # https://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html
@@ -44,8 +44,8 @@ win64:
 # compiles with gnu99 standard flags for amazon linux, coreos, etc. compatibility
 .PHONY: rungnu
 rungnu:
-	$(CC) -Ofast -std=gnu11 -o run run.c -lm
-	$(CC) -Ofast -std=gnu11 -o runq runq.c -lm
+	$(CC) -O0 -std=gnu11 -o run run.c -lm
+	$(CC) -O0 -std=gnu11 -o runq runq.c -lm
 
 .PHONY: runompgnu
 runompgnu:

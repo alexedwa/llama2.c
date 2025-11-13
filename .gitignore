@@ -1,0 +1,15 @@
+## IDE Configs
+.vs
+.vscode
+.github/
+
+## Unneeded Assets
+assets/
+doc/
+
+## Training data
+/*.bin
+
+## Gprof files
+/*.out
+gprof_tests/
