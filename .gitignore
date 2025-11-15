@@ -13,3 +13,5 @@ doc/
 ## Gprof files
 /*.out
 gprof_tests/
+
+*.exe
