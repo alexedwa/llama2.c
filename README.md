@@ -13,7 +13,7 @@ To run the optimised version of the LLM you will need to:
   - `make run`
 
 - Or compile via the terminal
-  - `gcc run.c -o run.exe -openmp -lm -O3`
+  - `gcc run.c win.c -o llama2.exe -mavx2 -mfma -lm -O3`
 
 - Then finally run the file
   - `./run.exe`
