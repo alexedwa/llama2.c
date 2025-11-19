@@ -216,31 +216,61 @@ void softmax(float* x, int size) {
 }
 
 void matmul(float* xout, float* x, float* w, int n, int d) {
-    __m256 num1, num2, num3, num4;
+    __m256 num1, num2, num3, num4, num5, num6, num7, num8;
     __m128 xmm1;
-    // W (d,n) @ x (n,) -> xout (d,)
-    // by far the most amount of time is spent inside this little function
-    int i;
-    //#pragma omp parallel for private(i)
-    for (i = 0; i < d; i++) {
-        //float val = 0.0f;
-        num1 = _mm256_set_ps(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
-        for (int j = 0; j < n; j+=8) {
-            // val += w[i * n + j] * x[j];
+    
+    for (int i = 0; i < d; i += 4) {
+        num5 = _mm256_setzero_ps();
+        num6 = _mm256_setzero_ps();
+        num7 = _mm256_setzero_ps();
+        num8 = _mm256_setzero_ps();
 
-            num2 = _mm256_loadu_ps(&w[i * n + j]);
+        
+        for (int j = 0; j < n; j += 8) {
             num3 = _mm256_loadu_ps(&x[j]);
-            num1 = _mm256_fmadd_ps(num2, num3, num1);
+            
+            num2 = _mm256_loadu_ps(&w[i * n + j]);
+            num5 = _mm256_fmadd_ps(num2, num3, num5);
+            
+            num2 = _mm256_loadu_ps(&w[(i + 1) * n + j]);
+            num6 = _mm256_fmadd_ps(num2, num3, num6);
+   
+            num2 = _mm256_loadu_ps(&w[(i + 2) * n + j]);
+            num7 = _mm256_fmadd_ps(num2, num3, num7);
 
+            num2 = _mm256_loadu_ps(&w[(i + 3) * n + j]);
+            num8 = _mm256_fmadd_ps(num2, num3, num8);
+          
         }
-        num4 = _mm256_permute2f128_ps(num1, num1, 1);
-        num1 = _mm256_add_ps(num1, num4);
+        
+        num4 = _mm256_permute2f128_ps(num5, num5, 1);
+        num1 = _mm256_add_ps(num5, num4);
         num1 = _mm256_hadd_ps(num1, num1);
         num1 = _mm256_hadd_ps(num1, num1);
         xmm1 = _mm256_extractf128_ps(num1, 0);
-
         _mm_store_ss(&xout[i], xmm1);
-        //xout[i] = val;
+        
+        num4 = _mm256_permute2f128_ps(num6, num6, 1);
+        num1 = _mm256_add_ps(num6, num4);
+        num1 = _mm256_hadd_ps(num1, num1);
+        num1 = _mm256_hadd_ps(num1, num1);
+        xmm1 = _mm256_extractf128_ps(num1, 0);
+        _mm_store_ss(&xout[i + 1], xmm1);
+
+        num4 = _mm256_permute2f128_ps(num7, num7, 1);
+        num1 = _mm256_add_ps(num7, num4);
+        num1 = _mm256_hadd_ps(num1, num1);
+        num1 = _mm256_hadd_ps(num1, num1);
+        xmm1 = _mm256_extractf128_ps(num1, 0);
+        _mm_store_ss(&xout[i + 2], xmm1);
+
+        num4 = _mm256_permute2f128_ps(num8, num8, 1);
+        num1 = _mm256_add_ps(num8, num4);
+        num1 = _mm256_hadd_ps(num1, num1);
+        num1 = _mm256_hadd_ps(num1, num1);
+        xmm1 = _mm256_extractf128_ps(num1, 0);
+        _mm_store_ss(&xout[i + 3], xmm1);
+
     }
 }
 
