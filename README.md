@@ -16,7 +16,7 @@ To run the optimised version of the LLM you will need to:
   - `gcc run.c win.c -o llama2.exe -mavx2 -mfma -lm -O3`
 
 - Then finally run the file
-  - `./run.exe`
+  - `./llama2.exe`
 
 ## Changelog
 - 13/11/25
