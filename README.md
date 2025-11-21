@@ -20,4 +20,10 @@ To run the optimised version of the LLM you will need to:
 
 ## Changelog
 - 13/11/25
-  - Added simple AVX2 vectorisation to the run.c file
+  - Added simple AVX2 vectorisation to the matmul function in run.c
+
+- 19/11/25
+  - Applied register blocking to the matmul routine
+
+- 20/11/25
+  - Applied loop tiling to the matmul routine
