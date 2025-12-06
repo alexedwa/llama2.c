@@ -8,6 +8,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <immintrin.h>
+#include <omp.h>
 #if defined _WIN32
     #include "win.h"
 #else
@@ -219,19 +220,25 @@ void matmul(float* xout, float* x, float* w, int n, int d) {
     __m256 num1, num2, num3, num4, num5, num6, num7, num8;
     __m128 xmm1;
 
-    int T = 32; // Loop tiling size
-    for (int ii = 0; ii < d; ii += T){
-        for (int i = ii; i < ii + T; i += 4) {
+    int TILE = 16; // tile size for loop tiling
 
-            // Register blocking with size 4
-            // Setting sum to 0
+    int ii, i, jj, j;
+    #pragma omp parallel
+    {
+    #pragma omp for private(i, jj, j, num1, num2, num3, num4, num5, num6, num7, num8, xmm1) schedule(dynamic, 8)
+    for (ii = 0; ii < d; ii += TILE){
+        for (i = ii; i < ii + TILE; i += 4) {
+
+            // register blocking with size 4
+            // setting sum to 0
             num5 = _mm256_setzero_ps();
             num6 = _mm256_setzero_ps();
             num7 = _mm256_setzero_ps();
             num8 = _mm256_setzero_ps();
 
-            for (int jj = 0; jj < n; jj += T){
-                for (int j = jj; j < jj + T; j += 8) {
+            for (jj = 0; jj < n; jj += TILE){
+                //#pragma omp reduction(+:num5, num6, num7, num8)
+                for (j = jj; j < jj + TILE; j += 8) {
 
                     // loading 8 values of x into num3
                     num3 = _mm256_loadu_ps(&x[j]);
@@ -282,6 +289,7 @@ void matmul(float* xout, float* x, float* w, int n, int d) {
             _mm_store_ss(&xout[i + 3], xmm1);
 
         }
+    }
     }
 }
 
@@ -873,6 +881,9 @@ void chat(Transformer *transformer, Tokenizer *tokenizer, Sampler *sampler,
     int token;       // stores the current token to feed into the transformer
     int prev_token;
     int pos = 0;     // position in the sequence
+
+    omp_set_num_threads(8);
+
     while (pos < steps) {
 
         // when it is the user's turn to contribute tokens to the dialog...
