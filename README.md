@@ -27,3 +27,7 @@ To run the optimised version of the LLM you will need to:
 
 - 20/11/25
   - Applied loop tiling to the matmul routine
+
+- 5/12/25
+  - Applied parallelism using OpenMP to matmul. 
+  - Included a file just for testing the matmul function.
