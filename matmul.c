@@ -469,7 +469,7 @@ void matmul_omp(float* xout, float* x, float* w, int n, int d, int TILE){
     int ii, i, jj, j;
     #pragma omp parallel
     {
-    #pragma omp for private(i, jj, j, num1, num2, num3, num4, num5, num6, num7, num8, xmm1) schedule(static)
+    #pragma omp for private(i, jj, j, num1, num2, num3, num4, num5, num6, num7, num8, xmm1) schedule(dynamic) nowait
     for (ii = 0; ii < d; ii += TILE){
         for (i = ii; i < ii + TILE; i += 4) {
 
@@ -481,23 +481,22 @@ void matmul_omp(float* xout, float* x, float* w, int n, int d, int TILE){
             num8 = _mm256_setzero_ps();
 
             for (jj = 0; jj < n; jj += TILE){
-                #pragma omp reduction(+:num5, num6, num7, num8)
                 for (j = jj; j < jj + TILE; j += 8) {
 
                     // loading 8 values of x into num3
-                    num3 = _mm256_loadu_ps(&x[j]);
+                    num3 = _mm256_load_ps(&x[j]);
                     
                     // loading values of w and applying a fused multiply and add
-                    num2 = _mm256_loadu_ps(&w[i * n + j]);
+                    num2 = _mm256_load_ps(&w[i * n + j]);
                     num5 = _mm256_fmadd_ps(num2, num3, num5);
                     
-                    num2 = _mm256_loadu_ps(&w[(i + 1) * n + j]);
+                    num2 = _mm256_load_ps(&w[(i + 1) * n + j]);
                     num6 = _mm256_fmadd_ps(num2, num3, num6);
             
-                    num2 = _mm256_loadu_ps(&w[(i + 2) * n + j]);
+                    num2 = _mm256_load_ps(&w[(i + 2) * n + j]);
                     num7 = _mm256_fmadd_ps(num2, num3, num7);
 
-                    num2 = _mm256_loadu_ps(&w[(i + 3) * n + j]);
+                    num2 = _mm256_load_ps(&w[(i + 3) * n + j]);
                     num8 = _mm256_fmadd_ps(num2, num3, num8);
                     
                 }
@@ -555,12 +554,13 @@ void initialise(){
 int main() {
     double start, end;
     long long flops;
+    int reruns = 32;
 
     initialise();
 
     omp_set_num_threads(8);
     start = omp_get_wtime();
-    for (int i = 0; i < 16; i++){
+    for (int i = 0; i < reruns; i++){
         //Baseline
         //matmul(xout, x, w, N, N);
 
@@ -584,11 +584,11 @@ int main() {
         //matmul_vec_loop_tiling(xout, x, w, N, N, 8);
 
         //OMP Vectorised Loop Tiling
-        //matmul_omp(xout, x, w, N, N, 64);
+        matmul_omp(xout, x, w, N, N, 32);
     }
     end = omp_get_wtime();
     flops = (2 * N * N);
-    printf("Average Run Time: %f seconds\nGFLOPS calculated: %f", ((end-start)/16), ((16 * flops)/(end-start))/BILLION);
+    printf("\nAverage Run Time: %f seconds\nGFLOPS calculated: %f\n", ((end-start) / reruns), ((reruns * flops)/(end-start))/BILLION);
 
     return 0;
 }

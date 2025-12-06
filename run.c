@@ -223,37 +223,37 @@ void matmul(float* xout, float* x, float* w, int n, int d) {
     int TILE = 16; // tile size for loop tiling
 
     int ii, i, jj, j;
+    
     #pragma omp parallel
     {
-    #pragma omp for private(i, jj, j, num1, num2, num3, num4, num5, num6, num7, num8, xmm1) schedule(dynamic, 8)
+    #pragma omp for private(i, jj, j, num1, num2, num3, num4, num5, num6, num7, num8, xmm1) schedule(dynamic) nowait
     for (ii = 0; ii < d; ii += TILE){
         for (i = ii; i < ii + TILE; i += 4) {
 
-            // register blocking with size 4
-            // setting sum to 0
+            // Register blocking with size 4
+            // Setting sum to 0
             num5 = _mm256_setzero_ps();
             num6 = _mm256_setzero_ps();
             num7 = _mm256_setzero_ps();
             num8 = _mm256_setzero_ps();
 
             for (jj = 0; jj < n; jj += TILE){
-                //#pragma omp reduction(+:num5, num6, num7, num8)
                 for (j = jj; j < jj + TILE; j += 8) {
 
                     // loading 8 values of x into num3
-                    num3 = _mm256_loadu_ps(&x[j]);
+                    num3 = _mm256_load_ps(&x[j]);
                     
                     // loading values of w and applying a fused multiply and add
-                    num2 = _mm256_loadu_ps(&w[i * n + j]);
+                    num2 = _mm256_load_ps(&w[i * n + j]);
                     num5 = _mm256_fmadd_ps(num2, num3, num5);
                     
-                    num2 = _mm256_loadu_ps(&w[(i + 1) * n + j]);
+                    num2 = _mm256_load_ps(&w[(i + 1) * n + j]);
                     num6 = _mm256_fmadd_ps(num2, num3, num6);
             
-                    num2 = _mm256_loadu_ps(&w[(i + 2) * n + j]);
+                    num2 = _mm256_load_ps(&w[(i + 2) * n + j]);
                     num7 = _mm256_fmadd_ps(num2, num3, num7);
 
-                    num2 = _mm256_loadu_ps(&w[(i + 3) * n + j]);
+                    num2 = _mm256_load_ps(&w[(i + 3) * n + j]);
                     num8 = _mm256_fmadd_ps(num2, num3, num8);
                     
                 }
@@ -804,10 +804,14 @@ void generate(Transformer *transformer, Tokenizer *tokenizer, Sampler *sampler, 
     }
 
     // start the main loop
-    long start = 0;  // used to time our code, only initialized after first iteration
+    double end, start = omp_get_wtime();  // used to time our code, only initialized after first iteration
     int next;        // will store the next token in the sequence
     int token = prompt_tokens[0]; // kick off with the first token in the prompt
     int pos = 0;     // position in the sequence
+
+    omp_set_num_threads(8);
+    printf("\nHere!\n");
+
     while (pos < steps) {
 
         // forward the transformer to get logits for the next token
@@ -839,8 +843,8 @@ void generate(Transformer *transformer, Tokenizer *tokenizer, Sampler *sampler, 
 
     // report achieved tok/s (pos-1 because the timer starts after first iteration)
     if (pos > 1) {
-        long end = time_in_ms();
-        fprintf(stderr, "achieved tok/s: %f\n", (pos-1) / (double)(end-start)*1000);
+        end = omp_get_wtime();
+        fprintf(stderr, "achieved tok/s: %f\ntime elapsed in seconds: %f\n", (pos-1) / (end-start), (end-start));
     }
 
     free(prompt_tokens);
@@ -881,8 +885,6 @@ void chat(Transformer *transformer, Tokenizer *tokenizer, Sampler *sampler,
     int token;       // stores the current token to feed into the transformer
     int prev_token;
     int pos = 0;     // position in the sequence
-
-    omp_set_num_threads(8);
 
     while (pos < steps) {
 
