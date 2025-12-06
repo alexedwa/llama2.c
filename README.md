@@ -31,3 +31,8 @@ To run the optimised version of the LLM you will need to:
 - 5/12/25
   - Applied parallelism using OpenMP to matmul. 
   - Included a file just for testing the matmul function.
+
+- 6/12/25
+  - Changed SIMD loading values from being misaligned to aligned (_mm_loadu_ps -> _mm_load_ps)
+  - Changed OMP scheduling from dynamic to static
+  - Included nowait OMP clause 
