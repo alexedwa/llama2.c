@@ -13,7 +13,7 @@ To run the optimised version of the LLM you will need to:
   - `make run`
 
 - Or compile via the terminal
-  - `gcc run.c win.c -o llama2.exe -mavx2 -mfma -lm -O3`
+  - `gcc run.c win.c -o llama2.exe -mavx2 -mfma -lm -O3 -fopenmp -march=native`
 
 - Then finally run the file
   - `./llama2.exe`
@@ -36,3 +36,7 @@ To run the optimised version of the LLM you will need to:
   - Changed SIMD loading values from being misaligned to aligned (_mm_loadu_ps -> _mm_load_ps)
   - Changed OMP scheduling from dynamic to static
   - Included nowait OMP clause 
+
+- 18/01/26
+  - Changed register blocking factor from 4 to 8
+  - Added array boundary checks for higher register blocking factors
