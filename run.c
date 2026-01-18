@@ -18,6 +18,7 @@
 // ----------------------------------------------------------------------------
 // Transformer model
 
+#define TILE 32
 typedef struct {
     int dim; // transformer dimension
     int hidden_dim; // for ffn layers
@@ -216,82 +217,134 @@ void softmax(float* x, int size) {
     }
 }
 
-void matmul(float* xout, float* x, float* w, int n, int d) {
-    __m256 num1, num2, num3, num4, num5, num6, num7, num8;
+void matmul(float* xout, float* x, float* w, int n, int d){
+    #pragma omp parallel 
+    {    
+
+    // 13 registers needed
+    __m256 val1, val2, val3, val4, val5, val6, val7, val8;
+    __m256 num1, num2, xnum, wnum;
     __m128 xmm1;
+    int i, ii, j, jj;
 
-    int TILE = 16; // tile size for loop tiling
-
-    int ii, i, jj, j;
+    #pragma omp for schedule(dynamic) nowait
+    for (ii = 0; ii < d; ii += TILE) {
+        for (i = ii; i < d && i < ii + TILE; i += 8) {
+            val1 = _mm256_setzero_ps();
+            val2 = _mm256_setzero_ps();
+            val3 = _mm256_setzero_ps();
+            val4 = _mm256_setzero_ps();
+            val5 = _mm256_setzero_ps();
+            val6 = _mm256_setzero_ps();
+            val7 = _mm256_setzero_ps();
+            val8 = _mm256_setzero_ps();
     
-    #pragma omp parallel
-    {
-    #pragma omp for private(i, jj, j, num1, num2, num3, num4, num5, num6, num7, num8, xmm1) schedule(dynamic) nowait
-    for (ii = 0; ii < d; ii += TILE){
-        for (i = ii; i < ii + TILE; i += 4) {
-
-            // Register blocking with size 4
-            // Setting sum to 0
-            num5 = _mm256_setzero_ps();
-            num6 = _mm256_setzero_ps();
-            num7 = _mm256_setzero_ps();
-            num8 = _mm256_setzero_ps();
-
             for (jj = 0; jj < n; jj += TILE){
-                for (j = jj; j < jj + TILE; j += 8) {
-
-                    // loading 8 values of x into num3
-                    num3 = _mm256_load_ps(&x[j]);
+                for (j = jj; j < n && j < jj + TILE; j += 8) {
+                    xnum = _mm256_loadu_ps(&x[j]);
                     
-                    // loading values of w and applying a fused multiply and add
-                    num2 = _mm256_load_ps(&w[i * n + j]);
-                    num5 = _mm256_fmadd_ps(num2, num3, num5);
+                    wnum = _mm256_loadu_ps(&w[i * n + j]);
+                    val1 = _mm256_fmadd_ps(wnum, xnum, val1);
                     
-                    num2 = _mm256_load_ps(&w[(i + 1) * n + j]);
-                    num6 = _mm256_fmadd_ps(num2, num3, num6);
-            
-                    num2 = _mm256_load_ps(&w[(i + 2) * n + j]);
-                    num7 = _mm256_fmadd_ps(num2, num3, num7);
-
-                    num2 = _mm256_load_ps(&w[(i + 3) * n + j]);
-                    num8 = _mm256_fmadd_ps(num2, num3, num8);
+                    wnum = _mm256_loadu_ps(&w[(i + 1) * n + j]);
+                    val2 = _mm256_fmadd_ps(wnum, xnum, val2);
+        
+                    wnum = _mm256_loadu_ps(&w[(i + 2) * n + j]);
+                    val3 = _mm256_fmadd_ps(wnum, xnum, val3);
+        
+                    wnum = _mm256_loadu_ps(&w[(i + 3) * n + j]);
+                    val4 = _mm256_fmadd_ps(wnum, xnum, val4);
+        
+                    wnum = _mm256_loadu_ps(&w[(i + 4) * n + j]);
+                    val5 = _mm256_fmadd_ps(wnum, xnum, val5);
                     
+                    wnum = _mm256_loadu_ps(&w[(i + 5) * n + j]);
+                    val6 = _mm256_fmadd_ps(wnum, xnum, val6);
+        
+                    wnum = _mm256_loadu_ps(&w[(i + 6) * n + j]);
+                    val7 = _mm256_fmadd_ps(wnum, xnum, val7);
+        
+                    wnum = _mm256_loadu_ps(&w[(i + 7) * n + j]);
+                    val8 = _mm256_fmadd_ps(wnum, xnum, val8);
+                  
                 }
-            }
+            }    
 
-            // accumulating the values and storing into xout
-            num4 = _mm256_permute2f128_ps(num5, num5, 1);
-            num1 = _mm256_add_ps(num5, num4);
+            num2 = _mm256_permute2f128_ps(val1, val1, 1);
+            num1 = _mm256_add_ps(val1, num2);
             num1 = _mm256_hadd_ps(num1, num1);
             num1 = _mm256_hadd_ps(num1, num1);
             xmm1 = _mm256_extractf128_ps(num1, 0);
             _mm_store_ss(&xout[i], xmm1);
-            
-            num4 = _mm256_permute2f128_ps(num6, num6, 1);
-            num1 = _mm256_add_ps(num6, num4);
+    
+            num2 = _mm256_permute2f128_ps(val2, val2, 1);
+            num1 = _mm256_add_ps(val2, num2);
             num1 = _mm256_hadd_ps(num1, num1);
             num1 = _mm256_hadd_ps(num1, num1);
             xmm1 = _mm256_extractf128_ps(num1, 0);
             _mm_store_ss(&xout[i + 1], xmm1);
-
-            num4 = _mm256_permute2f128_ps(num7, num7, 1);
-            num1 = _mm256_add_ps(num7, num4);
+    
+            num2 = _mm256_permute2f128_ps(val3, val3, 1);
+            num1 = _mm256_add_ps(val3, num2);
             num1 = _mm256_hadd_ps(num1, num1);
             num1 = _mm256_hadd_ps(num1, num1);
             xmm1 = _mm256_extractf128_ps(num1, 0);
             _mm_store_ss(&xout[i + 2], xmm1);
-
-            num4 = _mm256_permute2f128_ps(num8, num8, 1);
-            num1 = _mm256_add_ps(num8, num4);
+    
+            num2 = _mm256_permute2f128_ps(val4, val4, 1);
+            num1 = _mm256_add_ps(val4, num2);
             num1 = _mm256_hadd_ps(num1, num1);
             num1 = _mm256_hadd_ps(num1, num1);
             xmm1 = _mm256_extractf128_ps(num1, 0);
             _mm_store_ss(&xout[i + 3], xmm1);
+    
 
+
+
+
+            num2 = _mm256_permute2f128_ps(val5, val5, 1);
+            num1 = _mm256_add_ps(val5, num2);
+            num1 = _mm256_hadd_ps(num1, num1);
+            num1 = _mm256_hadd_ps(num1, num1);
+            xmm1 = _mm256_extractf128_ps(num1, 0);
+            _mm_store_ss(&xout[i + 4], xmm1);
+    
+            num2 = _mm256_permute2f128_ps(val6, val6, 1);
+            num1 = _mm256_add_ps(val6, num2);
+            num1 = _mm256_hadd_ps(num1, num1);
+            num1 = _mm256_hadd_ps(num1, num1);
+            xmm1 = _mm256_extractf128_ps(num1, 0);
+            _mm_store_ss(&xout[i + 5], xmm1);
+    
+            num2 = _mm256_permute2f128_ps(val7, val7, 1);
+            num1 = _mm256_add_ps(val7, num2);
+            num1 = _mm256_hadd_ps(num1, num1);
+            num1 = _mm256_hadd_ps(num1, num1);
+            xmm1 = _mm256_extractf128_ps(num1, 0);
+            _mm_store_ss(&xout[i + 6], xmm1);
+    
+            num2 = _mm256_permute2f128_ps(val8, val8, 1);
+            num1 = _mm256_add_ps(val8, num2);
+            num1 = _mm256_hadd_ps(num1, num1);
+            num1 = _mm256_hadd_ps(num1, num1);
+            xmm1 = _mm256_extractf128_ps(num1, 0);
+            _mm_store_ss(&xout[i + 7], xmm1);
+    
         }
     }
+
+    // CLEANUP LOOP
+    #pragma omp for schedule(dynamic) nowait
+    for (i = (d / 8) * 8; i < d; i++){
+        float val = 0.0f;
+        for(j = 0; j < n; j++){
+            val += w[i * n + j] * x[j];
+        }
+        xout[i] = val;
+    }   
     }
 }
+
 
 float* forward(Transformer* transformer, int token, int pos) {
     // a few convenience variables
@@ -809,9 +862,6 @@ void generate(Transformer *transformer, Tokenizer *tokenizer, Sampler *sampler, 
     int token = prompt_tokens[0]; // kick off with the first token in the prompt
     int pos = 0;     // position in the sequence
 
-    omp_set_num_threads(8);
-    printf("\nHere!\n");
-
     while (pos < steps) {
 
         // forward the transformer to get logits for the next token
@@ -1023,10 +1073,12 @@ int main(int argc, char *argv[]) {
     Sampler sampler;
     build_sampler(&sampler, transformer.config.vocab_size, temperature, topp, rng_seed);
 
-    // run!
+    // run!    
     if (strcmp(mode, "generate") == 0) {
+        omp_set_num_threads(4);
         generate(&transformer, &tokenizer, &sampler, prompt, steps);
     } else if (strcmp(mode, "chat") == 0) {
+        omp_set_num_threads(4);
         chat(&transformer, &tokenizer, &sampler, prompt, system_prompt, steps);
     } else {
         fprintf(stderr, "unknown mode: %s\n", mode);
