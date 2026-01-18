@@ -3,7 +3,7 @@
 #include <immintrin.h>
 #include <omp.h>
 
-#define N 4096
+#define N 1024
 #define BILLION 1000000000
 
 void matmul(float* xout, float* x, float* w, int n, int d);
@@ -256,100 +256,103 @@ void matmul_vec_rb_4(float* xout, float* x, float* w, int n, int d) {
 }
 
 void matmul_vec_rb_8(float* xout, float* x, float* w, int n, int d) {
-    __m256 num1, num2, num3, num4, num5, num6, num7, num8, num9, num10, num11, num12;
+    // 13 registers needed
+
+    __m256 val1, val2, val3, val4, val5, val6, val7, val8;
+    __m256 num1, num2, xnum, wnum;
     __m128 xmm1;
     
     for (int i = 0; i < d; i += 8) {
-        num5 = _mm256_setzero_ps();
-        num6 = _mm256_setzero_ps();
-        num7 = _mm256_setzero_ps();
-        num8 = _mm256_setzero_ps();
-        num9 = _mm256_setzero_ps();
-        num10 = _mm256_setzero_ps();
-        num11 = _mm256_setzero_ps();
-        num12 = _mm256_setzero_ps();
+        val1 = _mm256_setzero_ps();
+        val2 = _mm256_setzero_ps();
+        val3 = _mm256_setzero_ps();
+        val4 = _mm256_setzero_ps();
+        val5 = _mm256_setzero_ps();
+        val6 = _mm256_setzero_ps();
+        val7 = _mm256_setzero_ps();
+        val8 = _mm256_setzero_ps();
 
         
         for (int j = 0; j < n; j += 8) {
-            num3 = _mm256_loadu_ps(&x[j]);
+            xnum = _mm256_loadu_ps(&x[j]);
             
-            num2 = _mm256_loadu_ps(&w[i * n + j]);
-            num5 = _mm256_fmadd_ps(num2, num3, num5);
+            wnum = _mm256_loadu_ps(&w[i * n + j]);
+            val1 = _mm256_fmadd_ps(wnum, xnum, val1);
             
-            num2 = _mm256_loadu_ps(&w[(i + 1) * n + j]);
-            num6 = _mm256_fmadd_ps(num2, num3, num6);
-   
-            num2 = _mm256_loadu_ps(&w[(i + 2) * n + j]);
-            num7 = _mm256_fmadd_ps(num2, num3, num7);
+            wnum = _mm256_loadu_ps(&w[(i + 1) * n + j]);
+            val2 = _mm256_fmadd_ps(wnum, xnum, val2);
 
-            num2 = _mm256_loadu_ps(&w[(i + 3) * n + j]);
-            num8 = _mm256_fmadd_ps(num2, num3, num8);
+            wnum = _mm256_loadu_ps(&w[(i + 2) * n + j]);
+            val3 = _mm256_fmadd_ps(wnum, xnum, val3);
 
-            num2 = _mm256_loadu_ps(&w[(i + 4) * n + j]);
-            num5 = _mm256_fmadd_ps(num2, num3, num5);
+            wnum = _mm256_loadu_ps(&w[(i + 3) * n + j]);
+            val4 = _mm256_fmadd_ps(wnum, xnum, val4);
+
+            wnum = _mm256_loadu_ps(&w[(i + 4) * n + j]);
+            val5 = _mm256_fmadd_ps(wnum, xnum, val5);
             
-            num2 = _mm256_loadu_ps(&w[(i + 5) * n + j]);
-            num6 = _mm256_fmadd_ps(num2, num3, num6);
-   
-            num2 = _mm256_loadu_ps(&w[(i + 6) * n + j]);
-            num7 = _mm256_fmadd_ps(num2, num3, num7);
+            wnum = _mm256_loadu_ps(&w[(i + 5) * n + j]);
+            val6 = _mm256_fmadd_ps(wnum, xnum, val6);
 
-            num2 = _mm256_loadu_ps(&w[(i + 7) * n + j]);
-            num8 = _mm256_fmadd_ps(num2, num3, num8);
+            wnum = _mm256_loadu_ps(&w[(i + 6) * n + j]);
+            val7 = _mm256_fmadd_ps(wnum, xnum, val7);
+
+            wnum = _mm256_loadu_ps(&w[(i + 7) * n + j]);
+            val8 = _mm256_fmadd_ps(wnum, xnum, val8);
           
         }
         
-        num4 = _mm256_permute2f128_ps(num5, num5, 1);
-        num1 = _mm256_add_ps(num5, num4);
+        num2 = _mm256_permute2f128_ps(val1, val1, 1);
+        num1 = _mm256_add_ps(val1, num2);
         num1 = _mm256_hadd_ps(num1, num1);
         num1 = _mm256_hadd_ps(num1, num1);
         xmm1 = _mm256_extractf128_ps(num1, 0);
         _mm_store_ss(&xout[i], xmm1);
-        
-        num4 = _mm256_permute2f128_ps(num6, num6, 1);
-        num1 = _mm256_add_ps(num6, num4);
+
+        num2 = _mm256_permute2f128_ps(val2, val2, 1);
+        num1 = _mm256_add_ps(val2, num2);
         num1 = _mm256_hadd_ps(num1, num1);
         num1 = _mm256_hadd_ps(num1, num1);
         xmm1 = _mm256_extractf128_ps(num1, 0);
         _mm_store_ss(&xout[i + 1], xmm1);
 
-        num4 = _mm256_permute2f128_ps(num7, num7, 1);
-        num1 = _mm256_add_ps(num7, num4);
+        num2 = _mm256_permute2f128_ps(val3, val3, 1);
+        num1 = _mm256_add_ps(val3, num2);
         num1 = _mm256_hadd_ps(num1, num1);
         num1 = _mm256_hadd_ps(num1, num1);
         xmm1 = _mm256_extractf128_ps(num1, 0);
         _mm_store_ss(&xout[i + 2], xmm1);
 
-        num4 = _mm256_permute2f128_ps(num8, num8, 1);
-        num1 = _mm256_add_ps(num8, num4);
+        num2 = _mm256_permute2f128_ps(val4, val4, 1);
+        num1 = _mm256_add_ps(val4, num2);
         num1 = _mm256_hadd_ps(num1, num1);
         num1 = _mm256_hadd_ps(num1, num1);
         xmm1 = _mm256_extractf128_ps(num1, 0);
         _mm_store_ss(&xout[i + 3], xmm1);
 
-        num4 = _mm256_permute2f128_ps(num9, num9, 1);
-        num1 = _mm256_add_ps(num9, num4);
+        num2 = _mm256_permute2f128_ps(val5, val5, 1);
+        num1 = _mm256_add_ps(val5, num2);
         num1 = _mm256_hadd_ps(num1, num1);
         num1 = _mm256_hadd_ps(num1, num1);
         xmm1 = _mm256_extractf128_ps(num1, 0);
         _mm_store_ss(&xout[i + 4], xmm1);
-        
-        num4 = _mm256_permute2f128_ps(num10, num10, 1);
-        num1 = _mm256_add_ps(num10, num4);
+
+        num2 = _mm256_permute2f128_ps(val6, val6, 1);
+        num1 = _mm256_add_ps(val6, num2);
         num1 = _mm256_hadd_ps(num1, num1);
         num1 = _mm256_hadd_ps(num1, num1);
         xmm1 = _mm256_extractf128_ps(num1, 0);
         _mm_store_ss(&xout[i + 5], xmm1);
 
-        num4 = _mm256_permute2f128_ps(num11, num11, 1);
-        num1 = _mm256_add_ps(num11, num4);
+        num2 = _mm256_permute2f128_ps(val7, val7, 1);
+        num1 = _mm256_add_ps(val7, num2);
         num1 = _mm256_hadd_ps(num1, num1);
         num1 = _mm256_hadd_ps(num1, num1);
         xmm1 = _mm256_extractf128_ps(num1, 0);
         _mm_store_ss(&xout[i + 6], xmm1);
 
-        num4 = _mm256_permute2f128_ps(num12, num12, 1);
-        num1 = _mm256_add_ps(num12, num4);
+        num2 = _mm256_permute2f128_ps(val8, val8, 1);
+        num1 = _mm256_add_ps(val8, num2);
         num1 = _mm256_hadd_ps(num1, num1);
         num1 = _mm256_hadd_ps(num1, num1);
         xmm1 = _mm256_extractf128_ps(num1, 0);
@@ -358,181 +361,633 @@ void matmul_vec_rb_8(float* xout, float* x, float* w, int n, int d) {
     }
 }
 
+void matmul_vec_rb_12(float* xout, float* x, float* w, int n, int d) {
+    // 19 registers needed
 
-// Loop Tiling
-void matmul_loop_tiling(float* xout, float* x, float* w, int n, int d, int TILE){
-    float val_x;
+    __m256 val1, val2, val3, val4, val5, val6, val7, val8, val9, val10, val11, val12;
+    __m256 xnum, wnum, res1, res2;
+    __m128 xmm1;
+    int i, j;
+    
+    for (i = 0; i < d; i += 12) {
+        val1 = _mm256_setzero_ps();
+        val2 = _mm256_setzero_ps();
+        val3 = _mm256_setzero_ps();
+        val4 = _mm256_setzero_ps();
 
-    for (int ii = 0; ii < d; ii += TILE){
-        for (int i = ii; i < ii + TILE; i += 4) {
-            float val1 = 0.0f;
-            float val2 = 0.0f;
-            float val3 = 0.0f;
-            float val4 = 0.0f;
-            
-            for (int jj = 0; jj < n; jj += TILE){
-                for (int j = jj; j < jj + TILE; j++) {
-                    val_x = x[j];
+        val5 = _mm256_setzero_ps();
+        val6 = _mm256_setzero_ps();
+        val7 = _mm256_setzero_ps();
+        val8 = _mm256_setzero_ps();
+
+        val9 = _mm256_setzero_ps();
+        val10 = _mm256_setzero_ps();
+        val11 = _mm256_setzero_ps();
+        val12 = _mm256_setzero_ps();
+
         
-                    val1 += w[i * n + j] * val_x;
-                    val2 += w[(i + 1) * n + j] * val_x;
-        
-                    val3 += w[(i + 2) * n + j] * val_x;
-                    val4 += w[(i + 3) * n + j] * val_x;
-                }
-            }
+        for (j = 0; j < n; j += 8) {
+            xnum = _mm256_loadu_ps(&x[j]);
             
-            xout[i] = val1;
-            xout[i + 1] = val2;
-            xout[i + 2] = val3;
-            xout[i + 3] = val4;        
+            wnum = _mm256_loadu_ps(&w[i * n + j]);
+            val1 = _mm256_fmadd_ps(wnum, xnum, val1);
+            
+            wnum = _mm256_loadu_ps(&w[(i + 1) * n + j]);
+            val2 = _mm256_fmadd_ps(wnum, xnum, val2);
+
+            wnum = _mm256_loadu_ps(&w[(i + 2) * n + j]);
+            val3 = _mm256_fmadd_ps(wnum, xnum, val3);
+
+            wnum = _mm256_loadu_ps(&w[(i + 3) * n + j]);
+            val4 = _mm256_fmadd_ps(wnum, xnum, val4);
+
+            wnum = _mm256_loadu_ps(&w[(i + 4) * n + j]);
+            val5 = _mm256_fmadd_ps(wnum, xnum, val5);
+            
+            wnum = _mm256_loadu_ps(&w[(i + 5) * n + j]);
+            val6 = _mm256_fmadd_ps(wnum, xnum, val6);
+
+            wnum = _mm256_loadu_ps(&w[(i + 6) * n + j]);
+            val7 = _mm256_fmadd_ps(wnum, xnum, val7);
+
+            wnum = _mm256_loadu_ps(&w[(i + 7) * n + j]);
+            val8 = _mm256_fmadd_ps(wnum, xnum, val8);
+
+            wnum = _mm256_loadu_ps(&w[(i + 8) * n + j]);
+            val9 = _mm256_fmadd_ps(wnum, xnum, val9);
+
+            wnum = _mm256_loadu_ps(&w[(i + 9) * n + j]);
+            val10 = _mm256_fmadd_ps(wnum, xnum, val10);
+
+            wnum = _mm256_loadu_ps(&w[(i + 10) * n + j]);
+            val11 = _mm256_fmadd_ps(wnum, xnum, val11);
+
+            wnum = _mm256_loadu_ps(&w[(i + 11) * n + j]);
+            val12 = _mm256_fmadd_ps(wnum, xnum, val12);
+          
         }
+
+        res1 = _mm256_permute2f128_ps(val1, val1, 1);
+        res2 = _mm256_add_ps(val1, res1);
+        res2 = _mm256_hadd_ps(res2, res2);
+        res2 = _mm256_hadd_ps(res2, res2);
+        xmm1 = _mm256_extractf128_ps(res2, 0);
+        _mm_store_ss(&xout[i], xmm1);
+
+        res1 = _mm256_permute2f128_ps(val2, val2, 1);
+        res2 = _mm256_add_ps(val2, res1);
+        res2 = _mm256_hadd_ps(res2, res2);
+        res2 = _mm256_hadd_ps(res2, res2);
+        xmm1 = _mm256_extractf128_ps(res2, 0);
+        _mm_store_ss(&xout[i + 1], xmm1);
+
+        res1 = _mm256_permute2f128_ps(val3, val3, 1);
+        res2 = _mm256_add_ps(val3, res1);
+        res2 = _mm256_hadd_ps(res2, res2);
+        res2 = _mm256_hadd_ps(res2, res2);
+        xmm1 = _mm256_extractf128_ps(res2, 0);
+        _mm_store_ss(&xout[i + 2], xmm1);
+
+        res1 = _mm256_permute2f128_ps(val4, val4, 1);
+        res2 = _mm256_add_ps(val4, res1);
+        res2 = _mm256_hadd_ps(res2, res2);
+        res2 = _mm256_hadd_ps(res2, res2);
+        xmm1 = _mm256_extractf128_ps(res2, 0);
+        _mm_store_ss(&xout[i + 3], xmm1);
+
+        res1 = _mm256_permute2f128_ps(val5, val5, 1);
+        res2 = _mm256_add_ps(val5, res1);
+        res2 = _mm256_hadd_ps(res2, res2);
+        res2 = _mm256_hadd_ps(res2, res2);
+        xmm1 = _mm256_extractf128_ps(res2, 0);
+        _mm_store_ss(&xout[i + 4], xmm1);
+
+        res1 = _mm256_permute2f128_ps(val6, val6, 1);
+        res2 = _mm256_add_ps(val6, res1);
+        res2 = _mm256_hadd_ps(res2, res2);
+        res2 = _mm256_hadd_ps(res2, res2);
+        xmm1 = _mm256_extractf128_ps(res2, 0);
+        _mm_store_ss(&xout[i + 5], xmm1);
+
+        res1 = _mm256_permute2f128_ps(val7, val7, 1);
+        res2 = _mm256_add_ps(val7, res1);
+        res2 = _mm256_hadd_ps(res2, res2);
+        res2 = _mm256_hadd_ps(res2, res2);
+        xmm1 = _mm256_extractf128_ps(res2, 0);
+        _mm_store_ss(&xout[i + 6], xmm1);
+
+        res1 = _mm256_permute2f128_ps(val8, val8, 1);
+        res2 = _mm256_add_ps(val8, res1);
+        res2 = _mm256_hadd_ps(res2, res2);
+        res2 = _mm256_hadd_ps(res2, res2);
+        xmm1 = _mm256_extractf128_ps(res2, 0);
+        _mm_store_ss(&xout[i + 7], xmm1);
+
+        res1 = _mm256_permute2f128_ps(val9, val9, 1);
+        res2 = _mm256_add_ps(val9, res1);
+        res2 = _mm256_hadd_ps(res2, res2);
+        res2 = _mm256_hadd_ps(res2, res2);
+        xmm1 = _mm256_extractf128_ps(res2, 0);
+        _mm_store_ss(&xout[i + 8], xmm1);
+
+        res1 = _mm256_permute2f128_ps(val10, val10, 1);
+        res2 = _mm256_add_ps(val10, res1);
+        res2 = _mm256_hadd_ps(res2, res2);
+        res2 = _mm256_hadd_ps(res2, res2);
+        xmm1 = _mm256_extractf128_ps(res2, 0);
+        _mm_store_ss(&xout[i + 9], xmm1);
+
+        res1 = _mm256_permute2f128_ps(val11, val11, 1);
+        res2 = _mm256_add_ps(val11, res1);
+        res2 = _mm256_hadd_ps(res2, res2);
+        res2 = _mm256_hadd_ps(res2, res2);
+        xmm1 = _mm256_extractf128_ps(res2, 0);
+        _mm_store_ss(&xout[i + 10], xmm1);
+
+        res1 = _mm256_permute2f128_ps(val12, val12, 1);
+        res2 = _mm256_add_ps(val12, res1);
+        res2 = _mm256_hadd_ps(res2, res2);
+        res2 = _mm256_hadd_ps(res2, res2);
+        xmm1 = _mm256_extractf128_ps(res2, 0);
+        _mm_store_ss(&xout[i + 11], xmm1);
+
+    }
+    for (i = i; i < d; i++){
+        float val = 0.0f;
+        for(int j = 0; j < n; j++){
+            val += w[i * n + j] * x[j];
+        }
+        xout[i] = val;
     }
 }
 
-void matmul_vec_loop_tiling(float* xout, float* x, float* w, int n, int d, int TILE){
-    __m256 num1, num2, num3, num4, num5, num6, num7, num8;
+void matmul_vec_rb_16(float* xout, float* x, float* w, int n, int d) {
+    // 21 registers needed
+
+    __m256 val1, val2, val3, val4, val5, val6, val7, val8, val9, val10, val11, val12, val13, val14, val15, val16;
+    __m256 xnum1, wnum1, num1, num2;
     __m128 xmm1;
+    int i, j;
+    
+    for (i = 0; i < d; i += 16) {
+        val1 = _mm256_setzero_ps();
+        val2 = _mm256_setzero_ps();
+        val3 = _mm256_setzero_ps();
+        val4 = _mm256_setzero_ps();
 
-    for (int ii = 0; ii < d; ii += TILE){
-        for (int i = ii; i < ii + TILE; i += 4) {
+        val5 = _mm256_setzero_ps();
+        val6 = _mm256_setzero_ps();
+        val7 = _mm256_setzero_ps();
+        val8 = _mm256_setzero_ps();
 
-            // Register blocking with size 4
-            // Setting sum to 0
-            num5 = _mm256_setzero_ps();
-            num6 = _mm256_setzero_ps();
-            num7 = _mm256_setzero_ps();
-            num8 = _mm256_setzero_ps();
+        val9 = _mm256_setzero_ps();
+        val10 = _mm256_setzero_ps();
+        val11 = _mm256_setzero_ps();
+        val12 = _mm256_setzero_ps();
 
-            for (int jj = 0; jj < n; jj += TILE){
-                for (int j = jj; j < jj + TILE; j += 8) {
-
-                    // loading 8 values of x into num3
-                    num3 = _mm256_loadu_ps(&x[j]);
-                    
-                    // loading values of w and applying a fused multiply and add
-                    num2 = _mm256_loadu_ps(&w[i * n + j]);
-                    num5 = _mm256_fmadd_ps(num2, num3, num5);
-                    
-                    num2 = _mm256_loadu_ps(&w[(i + 1) * n + j]);
-                    num6 = _mm256_fmadd_ps(num2, num3, num6);
+        val13 = _mm256_setzero_ps();
+        val14 = _mm256_setzero_ps();
+        val15 = _mm256_setzero_ps();
+        val16 = _mm256_setzero_ps();
+        
+        for (j = 0; j < n; j += 8) {
+            xnum1 = _mm256_loadu_ps(&x[j]);
             
-                    num2 = _mm256_loadu_ps(&w[(i + 2) * n + j]);
-                    num7 = _mm256_fmadd_ps(num2, num3, num7);
+            wnum1 = _mm256_loadu_ps(&w[i * n + j]);
+            val1 = _mm256_fmadd_ps(wnum1, xnum1, val1);
+            
+            wnum1 = _mm256_loadu_ps(&w[(i + 1) * n + j]);
+            val2 = _mm256_fmadd_ps(wnum1, xnum1, val2);
+   
+            wnum1 = _mm256_loadu_ps(&w[(i + 2) * n + j]);
+            val3 = _mm256_fmadd_ps(wnum1, xnum1, val3);
 
-                    num2 = _mm256_loadu_ps(&w[(i + 3) * n + j]);
-                    num8 = _mm256_fmadd_ps(num2, num3, num8);
+            wnum1 = _mm256_loadu_ps(&w[(i + 3) * n + j]);
+            val4 = _mm256_fmadd_ps(wnum1, xnum1, val4);
+
+
+
+            wnum1 = _mm256_loadu_ps(&w[(i + 4) * n + j]);
+            val5 = _mm256_fmadd_ps(wnum1, xnum1, val5);
+            
+            wnum1 = _mm256_loadu_ps(&w[(i + 5) * n + j]);
+            val6 = _mm256_fmadd_ps(wnum1, xnum1, val6);
+   
+            wnum1 = _mm256_loadu_ps(&w[(i + 6) * n + j]);
+            val7 = _mm256_fmadd_ps(wnum1, xnum1, val7);
+
+            wnum1 = _mm256_loadu_ps(&w[(i + 7) * n + j]);
+            val8 = _mm256_fmadd_ps(wnum1, xnum1, val8);
+
+
+
+            wnum1 = _mm256_loadu_ps(&w[(i + 8) * n + j]);
+            val9 = _mm256_fmadd_ps(wnum1, xnum1, val9);
+            
+            wnum1 = _mm256_loadu_ps(&w[(i + 9) * n + j]);
+            val10 = _mm256_fmadd_ps(wnum1, xnum1, val10);
+   
+            wnum1 = _mm256_loadu_ps(&w[(i + 10) * n + j]);
+            val11 = _mm256_fmadd_ps(wnum1, xnum1, val11);
+
+            wnum1 = _mm256_loadu_ps(&w[(i + 11) * n + j]);
+            val12 = _mm256_fmadd_ps(wnum1, xnum1, val12);
+
+
+
+            wnum1 = _mm256_loadu_ps(&w[(i + 12) * n + j]);
+            val13 = _mm256_fmadd_ps(wnum1, xnum1, val13);
+            
+            wnum1 = _mm256_loadu_ps(&w[(i + 13) * n + j]);
+            val14 = _mm256_fmadd_ps(wnum1, xnum1, val14);
+   
+            wnum1 = _mm256_loadu_ps(&w[(i + 14) * n + j]);
+            val15 = _mm256_fmadd_ps(wnum1, xnum1, val15);
+
+            wnum1 = _mm256_loadu_ps(&w[(i + 15) * n + j]);
+            val16 = _mm256_fmadd_ps(wnum1, xnum1, val16);
+          
+        }
+        
+        num2 = _mm256_permute2f128_ps(val1, val1, 1);
+        num1 = _mm256_add_ps(val1, num2);
+        num1 = _mm256_hadd_ps(num1, num1);
+        num1 = _mm256_hadd_ps(num1, num1);
+        xmm1 = _mm256_extractf128_ps(num1, 0);
+        _mm_store_ss(&xout[i], xmm1);
+
+        num2 = _mm256_permute2f128_ps(val2, val2, 1);
+        num1 = _mm256_add_ps(val2, num2);
+        num1 = _mm256_hadd_ps(num1, num1);
+        num1 = _mm256_hadd_ps(num1, num1);
+        xmm1 = _mm256_extractf128_ps(num1, 0);
+        _mm_store_ss(&xout[i + 1], xmm1);
+
+        num2 = _mm256_permute2f128_ps(val3, val3, 1);
+        num1 = _mm256_add_ps(val3, num2);
+        num1 = _mm256_hadd_ps(num1, num1);
+        num1 = _mm256_hadd_ps(num1, num1);
+        xmm1 = _mm256_extractf128_ps(num1, 0);
+        _mm_store_ss(&xout[i + 2], xmm1);
+
+        num2 = _mm256_permute2f128_ps(val4, val4, 1);
+        num1 = _mm256_add_ps(val4, num2);
+        num1 = _mm256_hadd_ps(num1, num1);
+        num1 = _mm256_hadd_ps(num1, num1);
+        xmm1 = _mm256_extractf128_ps(num1, 0);
+        _mm_store_ss(&xout[i + 3], xmm1);
+
+
+
+        num2 = _mm256_permute2f128_ps(val5, val5, 1);
+        num1 = _mm256_add_ps(val5, num2);
+        num1 = _mm256_hadd_ps(num1, num1);
+        num1 = _mm256_hadd_ps(num1, num1);
+        xmm1 = _mm256_extractf128_ps(num1, 0);
+        _mm_store_ss(&xout[i + 4], xmm1);
+
+        num2 = _mm256_permute2f128_ps(val6, val6, 1);
+        num1 = _mm256_add_ps(val6, num2);
+        num1 = _mm256_hadd_ps(num1, num1);
+        num1 = _mm256_hadd_ps(num1, num1);
+        xmm1 = _mm256_extractf128_ps(num1, 0);
+        _mm_store_ss(&xout[i + 5], xmm1);
+
+        num2 = _mm256_permute2f128_ps(val7, val7, 1);
+        num1 = _mm256_add_ps(val7, num2);
+        num1 = _mm256_hadd_ps(num1, num1);
+        num1 = _mm256_hadd_ps(num1, num1);
+        xmm1 = _mm256_extractf128_ps(num1, 0);
+        _mm_store_ss(&xout[i + 6], xmm1);
+
+        num2 = _mm256_permute2f128_ps(val8, val8, 1);
+        num1 = _mm256_add_ps(val8, num2);
+        num1 = _mm256_hadd_ps(num1, num1);
+        num1 = _mm256_hadd_ps(num1, num1);
+        xmm1 = _mm256_extractf128_ps(num1, 0);
+        _mm_store_ss(&xout[i + 7], xmm1);
+
+
+
+        num2 = _mm256_permute2f128_ps(val9, val9, 1);
+        num1 = _mm256_add_ps(val9, num2);
+        num1 = _mm256_hadd_ps(num1, num1);
+        num1 = _mm256_hadd_ps(num1, num1);
+        xmm1 = _mm256_extractf128_ps(num1, 0);
+        _mm_store_ss(&xout[i + 8], xmm1);
+
+        num2 = _mm256_permute2f128_ps(val10, val10, 1);
+        num1 = _mm256_add_ps(val10, num2);
+        num1 = _mm256_hadd_ps(num1, num1);
+        num1 = _mm256_hadd_ps(num1, num1);
+        xmm1 = _mm256_extractf128_ps(num1, 0);
+        _mm_store_ss(&xout[i + 9], xmm1);
+
+        num2 = _mm256_permute2f128_ps(val11, val11, 1);
+        num1 = _mm256_add_ps(val11, num2);
+        num1 = _mm256_hadd_ps(num1, num1);
+        num1 = _mm256_hadd_ps(num1, num1);
+        xmm1 = _mm256_extractf128_ps(num1, 0);
+        _mm_store_ss(&xout[i + 10], xmm1);
+
+        num2 = _mm256_permute2f128_ps(val12, val12, 1);
+        num1 = _mm256_add_ps(val12, num2);
+        num1 = _mm256_hadd_ps(num1, num1);
+        num1 = _mm256_hadd_ps(num1, num1);
+        xmm1 = _mm256_extractf128_ps(num1, 0);
+        _mm_store_ss(&xout[i + 11], xmm1);
+        
+
+
+        num2 = _mm256_permute2f128_ps(val13, val13, 1);
+        num1 = _mm256_add_ps(val13, num2);
+        num1 = _mm256_hadd_ps(num1, num1);
+        num1 = _mm256_hadd_ps(num1, num1);
+        xmm1 = _mm256_extractf128_ps(num1, 0);
+        _mm_store_ss(&xout[i + 12], xmm1);
+
+        num2 = _mm256_permute2f128_ps(val14, val14, 1);
+        num1 = _mm256_add_ps(val14, num2);
+        num1 = _mm256_hadd_ps(num1, num1);
+        num1 = _mm256_hadd_ps(num1, num1);
+        xmm1 = _mm256_extractf128_ps(num1, 0);
+        _mm_store_ss(&xout[i + 13], xmm1);
+
+        num2 = _mm256_permute2f128_ps(val15, val15, 1);
+        num1 = _mm256_add_ps(val15, num2);
+        num1 = _mm256_hadd_ps(num1, num1);
+        num1 = _mm256_hadd_ps(num1, num1);
+        xmm1 = _mm256_extractf128_ps(num1, 0);
+        _mm_store_ss(&xout[i + 14], xmm1);
+
+        num2 = _mm256_permute2f128_ps(val16, val16, 1);
+        num1 = _mm256_add_ps(val16, num2);
+        num1 = _mm256_hadd_ps(num1, num1);
+        num1 = _mm256_hadd_ps(num1, num1);
+        xmm1 = _mm256_extractf128_ps(num1, 0);
+        _mm_store_ss(&xout[i + 15], xmm1);
+        
+
+    }
+
+    // CLEANUP LOOP
+    for (i = i; i < d; i++){
+        float val = 0.0f;
+        for(j = 0; j < n; j++){
+            val += w[i * n + j] * x[j];
+        }
+        xout[i] = val;
+    }
+}
+
+// Loop Tiling
+void matmul_vec_loop_tiling(float* xout, float* x, float* w, int n, int d, int TILE){
+    // 13 registers needed
+
+    __m256 val1, val2, val3, val4, val5, val6, val7, val8;
+    __m256 num1, num2, xnum, wnum;
+    __m128 xmm1;
+    int i, ii, j, jj;
+    
+    for (ii = 0; ii < d; ii += TILE) {
+        for (i = ii; i < d && i < ii + TILE; i += 8) {
+            val1 = _mm256_setzero_ps();
+            val2 = _mm256_setzero_ps();
+            val3 = _mm256_setzero_ps();
+            val4 = _mm256_setzero_ps();
+            val5 = _mm256_setzero_ps();
+            val6 = _mm256_setzero_ps();
+            val7 = _mm256_setzero_ps();
+            val8 = _mm256_setzero_ps();
+    
+            for (jj = 0; jj < n; jj += TILE){
+                for (j = jj; j < n && j < jj + TILE; j += 8) {
+                    xnum = _mm256_loadu_ps(&x[j]);
                     
+                    wnum = _mm256_loadu_ps(&w[i * n + j]);
+                    val1 = _mm256_fmadd_ps(wnum, xnum, val1);
+                    
+                    wnum = _mm256_loadu_ps(&w[(i + 1) * n + j]);
+                    val2 = _mm256_fmadd_ps(wnum, xnum, val2);
+        
+                    wnum = _mm256_loadu_ps(&w[(i + 2) * n + j]);
+                    val3 = _mm256_fmadd_ps(wnum, xnum, val3);
+        
+                    wnum = _mm256_loadu_ps(&w[(i + 3) * n + j]);
+                    val4 = _mm256_fmadd_ps(wnum, xnum, val4);
+        
+                    wnum = _mm256_loadu_ps(&w[(i + 4) * n + j]);
+                    val5 = _mm256_fmadd_ps(wnum, xnum, val5);
+                    
+                    wnum = _mm256_loadu_ps(&w[(i + 5) * n + j]);
+                    val6 = _mm256_fmadd_ps(wnum, xnum, val6);
+        
+                    wnum = _mm256_loadu_ps(&w[(i + 6) * n + j]);
+                    val7 = _mm256_fmadd_ps(wnum, xnum, val7);
+        
+                    wnum = _mm256_loadu_ps(&w[(i + 7) * n + j]);
+                    val8 = _mm256_fmadd_ps(wnum, xnum, val8);
+                  
                 }
-            }
+            }    
 
-            // accumulating the values and storing into xout
-            num4 = _mm256_permute2f128_ps(num5, num5, 1);
-            num1 = _mm256_add_ps(num5, num4);
+            num2 = _mm256_permute2f128_ps(val1, val1, 1);
+            num1 = _mm256_add_ps(val1, num2);
             num1 = _mm256_hadd_ps(num1, num1);
             num1 = _mm256_hadd_ps(num1, num1);
             xmm1 = _mm256_extractf128_ps(num1, 0);
             _mm_store_ss(&xout[i], xmm1);
-            
-            num4 = _mm256_permute2f128_ps(num6, num6, 1);
-            num1 = _mm256_add_ps(num6, num4);
+    
+            num2 = _mm256_permute2f128_ps(val2, val2, 1);
+            num1 = _mm256_add_ps(val2, num2);
             num1 = _mm256_hadd_ps(num1, num1);
             num1 = _mm256_hadd_ps(num1, num1);
             xmm1 = _mm256_extractf128_ps(num1, 0);
             _mm_store_ss(&xout[i + 1], xmm1);
-
-            num4 = _mm256_permute2f128_ps(num7, num7, 1);
-            num1 = _mm256_add_ps(num7, num4);
+    
+            num2 = _mm256_permute2f128_ps(val3, val3, 1);
+            num1 = _mm256_add_ps(val3, num2);
             num1 = _mm256_hadd_ps(num1, num1);
             num1 = _mm256_hadd_ps(num1, num1);
             xmm1 = _mm256_extractf128_ps(num1, 0);
             _mm_store_ss(&xout[i + 2], xmm1);
-
-            num4 = _mm256_permute2f128_ps(num8, num8, 1);
-            num1 = _mm256_add_ps(num8, num4);
+    
+            num2 = _mm256_permute2f128_ps(val4, val4, 1);
+            num1 = _mm256_add_ps(val4, num2);
             num1 = _mm256_hadd_ps(num1, num1);
             num1 = _mm256_hadd_ps(num1, num1);
             xmm1 = _mm256_extractf128_ps(num1, 0);
             _mm_store_ss(&xout[i + 3], xmm1);
-
+    
+            num2 = _mm256_permute2f128_ps(val5, val5, 1);
+            num1 = _mm256_add_ps(val5, num2);
+            num1 = _mm256_hadd_ps(num1, num1);
+            num1 = _mm256_hadd_ps(num1, num1);
+            xmm1 = _mm256_extractf128_ps(num1, 0);
+            _mm_store_ss(&xout[i + 4], xmm1);
+    
+            num2 = _mm256_permute2f128_ps(val6, val6, 1);
+            num1 = _mm256_add_ps(val6, num2);
+            num1 = _mm256_hadd_ps(num1, num1);
+            num1 = _mm256_hadd_ps(num1, num1);
+            xmm1 = _mm256_extractf128_ps(num1, 0);
+            _mm_store_ss(&xout[i + 5], xmm1);
+    
+            num2 = _mm256_permute2f128_ps(val7, val7, 1);
+            num1 = _mm256_add_ps(val7, num2);
+            num1 = _mm256_hadd_ps(num1, num1);
+            num1 = _mm256_hadd_ps(num1, num1);
+            xmm1 = _mm256_extractf128_ps(num1, 0);
+            _mm_store_ss(&xout[i + 6], xmm1);
+    
+            num2 = _mm256_permute2f128_ps(val8, val8, 1);
+            num1 = _mm256_add_ps(val8, num2);
+            num1 = _mm256_hadd_ps(num1, num1);
+            num1 = _mm256_hadd_ps(num1, num1);
+            xmm1 = _mm256_extractf128_ps(num1, 0);
+            _mm_store_ss(&xout[i + 7], xmm1);
+    
         }
     }
+
+    // CLEANUP LOOP
+    for (i = i; i < d; i++){
+        float val = 0.0f;
+        for(j = 0; j < n; j++){
+            val += w[i * n + j] * x[j];
+        }
+        xout[i] = val;
+    }
+
 }
 
 // OMP
 
+void omp_matmul(float* xout, float* x, float* w, int n, int d, int TILE){
+    #pragma omp parallel 
+    {    
 
-void matmul_omp(float* xout, float* x, float* w, int n, int d, int TILE){
-    __m256 num1, num2, num3, num4, num5, num6, num7, num8;
+    // 13 registers needed
+    __m256 val1, val2, val3, val4, val5, val6, val7, val8;
+    __m256 num1, num2, xnum, wnum;
     __m128 xmm1;
+    int i, ii, j, jj;
 
-    int ii, i, jj, j;
-    #pragma omp parallel
-    {
-    #pragma omp for private(i, jj, j, num1, num2, num3, num4, num5, num6, num7, num8, xmm1) schedule(dynamic) nowait
-    for (ii = 0; ii < d; ii += TILE){
-        for (i = ii; i < ii + TILE; i += 4) {
-
-            // Register blocking with size 4
-            // Setting sum to 0
-            num5 = _mm256_setzero_ps();
-            num6 = _mm256_setzero_ps();
-            num7 = _mm256_setzero_ps();
-            num8 = _mm256_setzero_ps();
-
+    #pragma omp for schedule(dynamic) nowait
+    for (ii = 0; ii < d; ii += TILE) {
+        for (i = ii; i < d && i < ii + TILE; i += 8) {
+            val1 = _mm256_setzero_ps();
+            val2 = _mm256_setzero_ps();
+            val3 = _mm256_setzero_ps();
+            val4 = _mm256_setzero_ps();
+            val5 = _mm256_setzero_ps();
+            val6 = _mm256_setzero_ps();
+            val7 = _mm256_setzero_ps();
+            val8 = _mm256_setzero_ps();
+    
             for (jj = 0; jj < n; jj += TILE){
-                for (j = jj; j < jj + TILE; j += 8) {
-
-                    // loading 8 values of x into num3
-                    num3 = _mm256_load_ps(&x[j]);
+                for (j = jj; j < n && j < jj + TILE; j += 8) {
+                    xnum = _mm256_loadu_ps(&x[j]);
                     
-                    // loading values of w and applying a fused multiply and add
-                    num2 = _mm256_load_ps(&w[i * n + j]);
-                    num5 = _mm256_fmadd_ps(num2, num3, num5);
+                    wnum = _mm256_loadu_ps(&w[i * n + j]);
+                    val1 = _mm256_fmadd_ps(wnum, xnum, val1);
                     
-                    num2 = _mm256_load_ps(&w[(i + 1) * n + j]);
-                    num6 = _mm256_fmadd_ps(num2, num3, num6);
-            
-                    num2 = _mm256_load_ps(&w[(i + 2) * n + j]);
-                    num7 = _mm256_fmadd_ps(num2, num3, num7);
-
-                    num2 = _mm256_load_ps(&w[(i + 3) * n + j]);
-                    num8 = _mm256_fmadd_ps(num2, num3, num8);
+                    wnum = _mm256_loadu_ps(&w[(i + 1) * n + j]);
+                    val2 = _mm256_fmadd_ps(wnum, xnum, val2);
+        
+                    wnum = _mm256_loadu_ps(&w[(i + 2) * n + j]);
+                    val3 = _mm256_fmadd_ps(wnum, xnum, val3);
+        
+                    wnum = _mm256_loadu_ps(&w[(i + 3) * n + j]);
+                    val4 = _mm256_fmadd_ps(wnum, xnum, val4);
+        
+                    wnum = _mm256_loadu_ps(&w[(i + 4) * n + j]);
+                    val5 = _mm256_fmadd_ps(wnum, xnum, val5);
                     
+                    wnum = _mm256_loadu_ps(&w[(i + 5) * n + j]);
+                    val6 = _mm256_fmadd_ps(wnum, xnum, val6);
+        
+                    wnum = _mm256_loadu_ps(&w[(i + 6) * n + j]);
+                    val7 = _mm256_fmadd_ps(wnum, xnum, val7);
+        
+                    wnum = _mm256_loadu_ps(&w[(i + 7) * n + j]);
+                    val8 = _mm256_fmadd_ps(wnum, xnum, val8);
+                  
                 }
-            }
+            }    
 
-            // accumulating the values and storing into xout
-            num4 = _mm256_permute2f128_ps(num5, num5, 1);
-            num1 = _mm256_add_ps(num5, num4);
+            num2 = _mm256_permute2f128_ps(val1, val1, 1);
+            num1 = _mm256_add_ps(val1, num2);
             num1 = _mm256_hadd_ps(num1, num1);
             num1 = _mm256_hadd_ps(num1, num1);
             xmm1 = _mm256_extractf128_ps(num1, 0);
             _mm_store_ss(&xout[i], xmm1);
-            
-            num4 = _mm256_permute2f128_ps(num6, num6, 1);
-            num1 = _mm256_add_ps(num6, num4);
+    
+            num2 = _mm256_permute2f128_ps(val2, val2, 1);
+            num1 = _mm256_add_ps(val2, num2);
             num1 = _mm256_hadd_ps(num1, num1);
             num1 = _mm256_hadd_ps(num1, num1);
             xmm1 = _mm256_extractf128_ps(num1, 0);
             _mm_store_ss(&xout[i + 1], xmm1);
-
-            num4 = _mm256_permute2f128_ps(num7, num7, 1);
-            num1 = _mm256_add_ps(num7, num4);
+    
+            num2 = _mm256_permute2f128_ps(val3, val3, 1);
+            num1 = _mm256_add_ps(val3, num2);
             num1 = _mm256_hadd_ps(num1, num1);
             num1 = _mm256_hadd_ps(num1, num1);
             xmm1 = _mm256_extractf128_ps(num1, 0);
             _mm_store_ss(&xout[i + 2], xmm1);
-
-            num4 = _mm256_permute2f128_ps(num8, num8, 1);
-            num1 = _mm256_add_ps(num8, num4);
+    
+            num2 = _mm256_permute2f128_ps(val4, val4, 1);
+            num1 = _mm256_add_ps(val4, num2);
             num1 = _mm256_hadd_ps(num1, num1);
             num1 = _mm256_hadd_ps(num1, num1);
             xmm1 = _mm256_extractf128_ps(num1, 0);
             _mm_store_ss(&xout[i + 3], xmm1);
+    
 
+
+
+
+            num2 = _mm256_permute2f128_ps(val5, val5, 1);
+            num1 = _mm256_add_ps(val5, num2);
+            num1 = _mm256_hadd_ps(num1, num1);
+            num1 = _mm256_hadd_ps(num1, num1);
+            xmm1 = _mm256_extractf128_ps(num1, 0);
+            _mm_store_ss(&xout[i + 4], xmm1);
+    
+            num2 = _mm256_permute2f128_ps(val6, val6, 1);
+            num1 = _mm256_add_ps(val6, num2);
+            num1 = _mm256_hadd_ps(num1, num1);
+            num1 = _mm256_hadd_ps(num1, num1);
+            xmm1 = _mm256_extractf128_ps(num1, 0);
+            _mm_store_ss(&xout[i + 5], xmm1);
+    
+            num2 = _mm256_permute2f128_ps(val7, val7, 1);
+            num1 = _mm256_add_ps(val7, num2);
+            num1 = _mm256_hadd_ps(num1, num1);
+            num1 = _mm256_hadd_ps(num1, num1);
+            xmm1 = _mm256_extractf128_ps(num1, 0);
+            _mm_store_ss(&xout[i + 6], xmm1);
+    
+            num2 = _mm256_permute2f128_ps(val8, val8, 1);
+            num1 = _mm256_add_ps(val8, num2);
+            num1 = _mm256_hadd_ps(num1, num1);
+            num1 = _mm256_hadd_ps(num1, num1);
+            xmm1 = _mm256_extractf128_ps(num1, 0);
+            _mm_store_ss(&xout[i + 7], xmm1);
+    
         }
     }
+
+    // CLEANUP LOOP
+    #pragma omp for schedule(dynamic) nowait
+    for (i = (d / 8) * 8; i < d; i++){
+        float val = 0.0f;
+        for(j = 0; j < n; j++){
+            val += w[i * n + j] * x[j];
+        }
+        xout[i] = val;
+    }   
     }
 }
 
@@ -554,11 +1009,11 @@ void initialise(){
 int main() {
     double start, end;
     long long flops;
-    int reruns = 32;
+    int reruns = 100000;
 
     initialise();
 
-    omp_set_num_threads(8);
+    omp_set_num_threads(4);
     start = omp_get_wtime();
     for (int i = 0; i < reruns; i++){
         //Baseline
@@ -576,19 +1031,20 @@ int main() {
         //matmul_vec_rb_2(xout, x, w, N, N);
         //matmul_vec_rb_4(xout, x, w, N, N);
         //matmul_vec_rb_8(xout, x, w, N, N);
-
-        //Loop Tiling
-        //matmul_loop_tiling(xout, x, w, N, N, 16);
+        //matmul_vec_rb_12(xout, x, w, N, N);
+        //matmul_vec_rb_16(xout, x, w, N, N);
 
         //Vectorised Loop Tiling
-        //matmul_vec_loop_tiling(xout, x, w, N, N, 8);
+        //matmul_vec_loop_tiling(xout, x, w, N, N, 128);
 
         //OMP Vectorised Loop Tiling
-        matmul_omp(xout, x, w, N, N, 32);
+        omp_matmul(xout, x, w, N, N, 64);
     }
     end = omp_get_wtime();
     flops = (2 * N * N);
-    printf("\nAverage Run Time: %f seconds\nGFLOPS calculated: %f\n", ((end-start) / reruns), ((reruns * flops)/(end-start))/BILLION);
+    printf("\nTotal Run Time: %f seconds\n", (end-start));
+    printf("Average Run Time: %f seconds\n", ((end-start) / reruns));
+    printf("GFLOPS: %f\n", ((reruns * flops)/(end-start))/BILLION);
 
     return 0;
 }
