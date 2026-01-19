@@ -40,3 +40,6 @@ To run the optimised version of the LLM you will need to:
 - 18/01/26
   - Changed register blocking factor from 4 to 8
   - Added array boundary checks for higher register blocking factors
+
+- 19/01/26
+  - Added CUDA testing enviroment for the matmul function.
