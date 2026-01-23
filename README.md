@@ -20,26 +20,29 @@ To run the optimised version of the LLM you will need to:
 
 ## Changelog
 - 13/11/25
-  - Added simple AVX2 vectorisation to the matmul function in run.c
+  - Added simple AVX2 vectorisation to the matmul function in run.c.
 
 - 19/11/25
-  - Applied register blocking to the matmul routine
+  - Applied register blocking to the matmul routine.
 
 - 20/11/25
-  - Applied loop tiling to the matmul routine
+  - Applied loop tiling to the matmul routine.
 
 - 5/12/25
   - Applied parallelism using OpenMP to matmul. 
   - Included a file just for testing the matmul function.
 
 - 6/12/25
-  - Changed SIMD loading values from being misaligned to aligned (_mm_loadu_ps -> _mm_load_ps)
-  - Changed OMP scheduling from dynamic to static
-  - Included nowait OMP clause 
+  - Changed SIMD loading values from being misaligned to aligned. (_mm_loadu_ps -> _mm_load_ps)
+  - Changed OMP scheduling from dynamic to static.
+  - Included nowait OMP clause.
 
 - 18/01/26
-  - Changed register blocking factor from 4 to 8
-  - Added array boundary checks for higher register blocking factors
+  - Changed register blocking factor from 4 to 8.
+  - Added array boundary checks for higher register blocking factors.
 
 - 19/01/26
   - Added CUDA testing enviroment for the matmul function.
+
+- 23/01/26
+  - Increased register blocking factor from 8 to 16, increasing GFLOPs.
