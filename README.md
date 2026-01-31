@@ -46,3 +46,6 @@ To run the optimised version of the LLM you will need to:
 
 - 23/01/26
   - Increased register blocking factor from 8 to 16, increasing GFLOPs.
+
+- 31/01/26
+  - Created a bash script to test the efficient and performance CPU cores
