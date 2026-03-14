@@ -49,3 +49,6 @@ To run the optimised version of the LLM you will need to:
 
 - 31/01/26
   - Created a bash script to test the efficient and performance CPU cores
+
+- 14/03/26
+  - Created different OpenMP functions to test different levels of OpenMP usages
