@@ -1989,12 +1989,12 @@ int main() {
             //matmul_vec_rb_20(xout, x, w, N, N);
 
             //Vectorised Loop Tiling
-            //matmul_vec_loop_tiling(xout, x, w, N, N, 32);
+            matmul_vec_loop_tiling(xout, x, w, N, N, 64);
 
             //OMP Vectorised Loop Tiling
             //omp_matmul_basic(xout, x, w, N, N, 32);
             //omp_matmul_for(xout, x, w, N, N, 32);
-            omp_matmul_full(xout, x, w, N, N, 32);
+            //omp_matmul_full(xout, x, w, N, N, 32);
         }
         end = omp_get_wtime();
         flops = (2 * N * N);

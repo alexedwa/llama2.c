@@ -18,7 +18,7 @@
 // ----------------------------------------------------------------------------
 // Transformer model
 
-#define TILE 32
+#define TILE 64
 typedef struct {
     int dim; // transformer dimension
     int hidden_dim; // for ffn layers
@@ -218,8 +218,6 @@ void softmax(float* x, int size) {
 }
 
 void matmul(float* xout, float* x, float* w, int n, int d) {
-    #pragma omp parallel 
-    {
 
     // 21 + 2 registers needed
     __m256 val1, val2, val3, val4, val5, val6, val7, val8, val9, val10, val11, val12, val13, val14, val15, val16;
@@ -227,7 +225,6 @@ void matmul(float* xout, float* x, float* w, int n, int d) {
     __m128 xmm1;
     int i, j, ii, jj;
 
-    #pragma omp for schedule(static) nowait
     for (ii = 0; ii < d; ii += TILE){
         for (i = ii; i < d && i < ii + TILE; i += 16) {
             val1 = _mm256_setzero_ps();
@@ -435,7 +432,7 @@ void matmul(float* xout, float* x, float* w, int n, int d) {
     
 
     // CLEANUP LOOP
-    #pragma omp for schedule(static) nowait
+ 
     for (i = (d / 8) * 8; i < d; i++){
         float val = 0.0f;
         for(j = 0; j < n; j++){
@@ -443,7 +440,7 @@ void matmul(float* xout, float* x, float* w, int n, int d) {
         }
         xout[i] = val;
     }
-    }
+    
 }
 
 float* forward(Transformer* transformer, int token, int pos) {
@@ -463,7 +460,8 @@ float* forward(Transformer* transformer, int token, int pos) {
     memcpy(x, content_row, dim*sizeof(*x));
 
     // forward all the layers
-    for(unsigned long long l = 0; l < p->n_layers; l++) {
+    unsigned long long l;
+    for(l = 0; l < p->n_layers; l++) {
 
         // attention rmsnorm
         rmsnorm(s->xb, x, w->rms_att_weight + l*dim, dim);
@@ -497,7 +495,7 @@ float* forward(Transformer* transformer, int token, int pos) {
 
         // multihead attention. iterate over all heads
         int h;
-        //#pragma omp parallel for private(h)
+        #pragma omp parallel for private(h)
         for (h = 0; h < p->n_heads; h++) {
             // get the query vector for this head
             float* q = s->q + h * head_size;
