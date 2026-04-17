@@ -5,9 +5,9 @@
 #include <cuda_runtime.h> 
 #include <device_launch_parameters.h>
 
-#define N 8192 // for others 1024, 2048
+#define N 8192 // for others 1024, 2048, 4096, 8192
 #define BILLION 1000000000
-#define TILE 256
+#define TILE 64
 void initialise();
 void matmul(float* xout, float* x, float* w, int n, int d);
 
@@ -33,8 +33,38 @@ __global__ void matmul_cuda(float* xout, float* x, float* w, int n, int d) {
         xout[i] = val;
     }
 }
+__global__ void matmul_cuda_rb2(float* xout, float* x, float* w, int n, int d) {
+    int i = (blockIdx.x * blockDim.x + threadIdx.x) * 2;
+    
+    if (i + 1 < d) {
+        float val0 = 0.0f, val1 = 0.0f;
+        
+        for (int k = 0; k < n; k++) {
+            float x_k = x[k];
+            val0 += w[(i + 0) * n + k] * x_k;
+            val1 += w[(i + 1) * n + k] * x_k;
 
-__global__ void matmul_cuda_rb(float* xout, float* x, float* w, int n, int d) {
+
+        }
+        
+        xout[i + 0] = val0;
+        xout[i + 1] = val1;
+
+
+    }
+    else if (i < d) {
+        // Tail handling for when d is not divisible by 8
+        for (int ii = i; ii < d; ii++) {
+            float val = 0.0f;
+            for (int k = 0; k < n; k++) {
+                val += w[ii * n + k] * x[k];
+            }
+            xout[ii] = val;
+        }
+    }
+}
+
+__global__ void matmul_cuda_rb4(float* xout, float* x, float* w, int n, int d) {
     int i = (blockIdx.x * blockDim.x + threadIdx.x) * 4;
     
     if (i + 3 < d) {
@@ -67,6 +97,45 @@ __global__ void matmul_cuda_rb(float* xout, float* x, float* w, int n, int d) {
     }
 }
 
+__global__ void matmul_cuda_rb8(float* xout, float* x, float* w, int n, int d) {
+    int i = (blockIdx.x * blockDim.x + threadIdx.x) * 8;
+    
+    if (i + 7 < d) {
+        float val0 = 0.0f, val1 = 0.0f, val2 = 0.0f, val3 = 0.0f, val4 = 0.0f, val5 = 0.0f, val6 = 0.0f, val7 = 0.0f;
+        
+        for (int k = 0; k < n; k++) {
+            float x_k = x[k];
+            val0 += w[(i + 0) * n + k] * x_k;
+            val1 += w[(i + 1) * n + k] * x_k;
+            val2 += w[(i + 2) * n + k] * x_k;
+            val3 += w[(i + 3) * n + k] * x_k;
+            val4 += w[(i + 4) * n + k] * x_k;
+            val5 += w[(i + 5) * n + k] * x_k;
+            val6 += w[(i + 6) * n + k] * x_k;
+            val7 += w[(i + 7) * n + k] * x_k;
+        }
+        
+        xout[i + 0] = val0;
+        xout[i + 1] = val1;
+        xout[i + 2] = val2;
+        xout[i + 3] = val3;
+        xout[i + 4] = val4;
+        xout[i + 5] = val5;
+        xout[i + 6] = val6;
+        xout[i + 7] = val7;
+
+    }
+    else if (i < d) {
+        // Tail handling for when d is not divisible by 8
+        for (int ii = i; ii < d; ii++) {
+            float val = 0.0f;
+            for (int k = 0; k < n; k++) {
+                val += w[ii * n + k] * x[k];
+            }
+            xout[ii] = val;
+        }
+    }
+}
 
 __global__ void matmul_cuda_tiled(float* xout, float* x, float* w, int n, int d) {
     __shared__ float x_tile[TILE];   // shared chunk of x
@@ -112,7 +181,7 @@ void initialise(float* x, float* xout, float* w) {
 
 int main() {
     long long flops;
-    int reruns = 1000;   // 1,000,000 is way too many; start smaller
+    int reruns = 1000;
 
     cudaError_t cudaStatus;
 
@@ -127,10 +196,11 @@ int main() {
     
     //rb
     int rb_threads = 256;
-    int rb_blocks = (N + rb_threads * 8 - 1) / (rb_threads * 8);
+    int factor_value = 8;
+    int rb_blocks = (N + rb_threads * factor_value - 1) / (rb_threads * factor_value);
     
     // lt
-    int lt_threads = TILE;   // must equal TILE for the loading pattern to work
+    int lt_threads = TILE;
     int lt_blocks = (N + lt_threads - 1) / lt_threads;
     
     float *x_d, *xout_d, *w_d;
@@ -161,7 +231,9 @@ int main() {
         for (int i = 0; i < reruns; i++) {
             //matmul_cuda<<<blocks, threads>>>(xout_d, x_d, w_d, N, N);
 
-            //matmul_cuda_rb<<<rb_blocks, rb_threads>>>(xout_d, x_d, w_d, N, N);
+            //matmul_cuda_rb2<<<rb_blocks, rb_threads>>>(xout_d, x_d, w_d, N, N);
+            //matmul_cuda_rb4<<<rb_blocks, rb_threads>>>(xout_d, x_d, w_d, N, N);
+            //matmul_cuda_rb8<<<rb_blocks, rb_threads>>>(xout_d, x_d, w_d, N, N);
 
             matmul_cuda_tiled<<<lt_blocks, lt_threads>>>(xout_d, x_d, w_d, N, N);
         }
