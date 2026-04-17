@@ -5,15 +5,11 @@
 #include <cuda_runtime.h> 
 #include <device_launch_parameters.h>
 
-#define N 1024
+#define N 8192 // for others 1024, 2048
 #define BILLION 1000000000
-#define TILE 64
+#define TILE 256
 void initialise();
 void matmul(float* xout, float* x, float* w, int n, int d);
-
-__align__(64) float xout[N];
-__align__(64) float x[N];
-__align__(64) float w[N * N];
 
 void matmul(float* xout, float* x, float* w, int n, int d) {
     int i;
@@ -28,92 +24,165 @@ void matmul(float* xout, float* x, float* w, int n, int d) {
 
 __global__ void matmul_cuda(float* xout, float* x, float* w, int n, int d) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
-    int j = blockIdx.y * blockDim.y + threadIdx.y;
 
-    if (i < d && j < n) {
+    if (i < d) {
         float val = 0.0f;
         for (int k = 0; k < n; k++) {
-            val += w[i * n + j] * x[j];
+            val += w[i * n + k] * x[k];
         }
-
         xout[i] = val;
     }
 }
 
-__global__ void matmul_cuda_tiled(float* xout, float* x, float* w, int n, int d) {
-    __shared__ float aa[TILE][TILE];
-    __shared__ float bb[TILE][TILE];
+__global__ void matmul_cuda_rb(float* xout, float* x, float* w, int n, int d) {
+    int i = (blockIdx.x * blockDim.x + threadIdx.x) * 4;
+    
+    if (i + 3 < d) {
+        float val0 = 0.0f, val1 = 0.0f, val2 = 0.0f, val3 = 0.0f;
+        
+        for (int k = 0; k < n; k++) {
+            float x_k = x[k];
+            val0 += w[(i + 0) * n + k] * x_k;
+            val1 += w[(i + 1) * n + k] * x_k;
+            val2 += w[(i + 2) * n + k] * x_k;
+            val3 += w[(i + 3) * n + k] * x_k;
 
-    float val = 0.0f;
-    int k, m;
-
-    int row_a = TILE * blockIdx.y + threadIdx.y;
-    int col_b = blockIdx.x * TILE + threadIdx.x;
-
-    for (m = 0; m < d / TILE; m++) {
-        aa[threadIdx.y][threadIdx.x] = x[N * (row_a)+(m * TILE + threadIdx.x)];
-        bb[threadIdx.y][threadIdx.x] = w[N * (m * TILE + threadIdx.y) + (col_b)];
-
-        __syncthreads(); 
-
-        for(k = 0; k < TILE; k++) {
-            val += aa[threadIdx.y][k] * bb[k][threadIdx.x];
         }
+        
+        xout[i + 0] = val0;
+        xout[i + 1] = val1;
+        xout[i + 2] = val2;
+        xout[i + 3] = val3;
 
-        __syncthreads();
     }
-    xout[d * row_a + col_b] = val;
+    else if (i < d) {
+        // Tail handling for when d is not divisible by 8
+        for (int ii = i; ii < d; ii++) {
+            float val = 0.0f;
+            for (int k = 0; k < n; k++) {
+                val += w[ii * n + k] * x[k];
+            }
+            xout[ii] = val;
+        }
+    }
 }
 
-void initialise() {
-    int i, j;
-    for (i = 0; i < N; i++) {
-        xout[i] = (float)(i % 7 + 0.01);
-        x[i] = (float)(i % 7 + 0.01);
 
-        for (j = 0; j < N; j++) {
-            w[i * j] = (float)(i % 7 + 0.01);
+__global__ void matmul_cuda_tiled(float* xout, float* x, float* w, int n, int d) {
+    __shared__ float x_tile[TILE];   // shared chunk of x
+    
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    int tid = threadIdx.x;
+    
+    float val = 0.0f;
+    
+    for (int k_tile = 0; k_tile < n; k_tile += TILE) {
+        
+        x_tile[tid] = x[k_tile + tid];
+        
+        __syncthreads();
+        
+        if (i < d) {
+            for (int k = 0; k < TILE; k++) {
+                val += w[i * n + (k_tile + k)] * x_tile[k];
+            }
+        }
+        
+        __syncthreads();
+    }
+    
+    if (i < d) {
+        xout[i] = val;
+    }
+}
 
+
+
+
+void initialise(float* x, float* xout, float* w) {
+    for (int i = 0; i < N; i++) {
+        x[i] = (float)(i % 7 + 0.01f);
+        xout[i] = 0.0f;
+        
+        for (int j = 0; j < N; j++) {
+            w[i * N + j] = (float)((i + j) % 7 + 0.01f);
         }
     }
 }
 
 int main() {
-    double start, end;
     long long flops;
-    int reruns = 100000000, i = 0; 
+    int reruns = 1000;   // 1,000,000 is way too many; start smaller
 
-    initialise();
     cudaError_t cudaStatus;
-   
-    //dim3 dimBlock(N, N, 1);
-    //dim3 dimGrid(N, N, 1);
 
-    dim3 dimBlock(N, N, 1);
-    dim3 dimGrid((N + (TILE * 2) - 1) / (TILE * 2), (N + (TILE * 2) - 1) / (TILE * 2), 1);
+    float* xout = (float*)malloc(N * sizeof(float));
+    float* x = (float*)malloc(N * sizeof(float));
+    float* w = (float*)malloc((size_t)N * N * sizeof(float));
+    initialise(xout, x, w);
+
+    // base cuda
+    int threads = 256;
+    int blocks = (N + threads - 1) / threads;
     
-    for (int j = 0; j < 5; j++) {
-        start = omp_get_wtime();
-        for (i = 0; i < reruns; i++) {
-            //matmul(xout, x, w, N, N);
-
-            //matmul_cuda << <dimGrid, dimBlock >> > (xout, x, w, N, N);
-
-            matmul_cuda_tiled << <dimGrid, dimBlock >> > (xout, x, w, N, N);
-        }
-        end = omp_get_wtime();
-
-        flops = (2 * N * N);
-        printf("\nTotal Run Time: %f seconds\n", (end - start));
-        printf("Average Run Time: %f seconds\n", ((end - start) / reruns));
-        printf("GFLOPS: %f\n", ((reruns * flops) / (end - start)) / BILLION);
-    }
-
-    cudaStatus = cudaDeviceReset();
+    //rb
+    int rb_threads = 256;
+    int rb_blocks = (N + rb_threads * 8 - 1) / (rb_threads * 8);
+    
+    // lt
+    int lt_threads = TILE;   // must equal TILE for the loading pattern to work
+    int lt_blocks = (N + lt_threads - 1) / lt_threads;
+    
+    float *x_d, *xout_d, *w_d;
+    cudaMalloc(&x_d, N * sizeof(float));
+    cudaMalloc(&xout_d, N * sizeof(float));
+    cudaMalloc(&w_d, N * N * sizeof(float));
+    
+    cudaMemcpy(x_d, x, N * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(w_d, w, N * N * sizeof(float), cudaMemcpyHostToDevice);
+    
+    cudaEvent_t start_ev, stop_ev;
+    cudaEventCreate(&start_ev);
+    cudaEventCreate(&stop_ev);
+    
+    //warmup
+    matmul_cuda<<<blocks, threads>>>(xout_d, x_d, w_d, N, N);
+    cudaDeviceSynchronize();
+    
+    cudaStatus = cudaGetLastError();
     if (cudaStatus != cudaSuccess) {
-        printf("\ncuda Reset failed!");
+        printf("Kernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
         return -1;
     }
+    
+    for (int j = 0; j < 5; j++) {
+        cudaEventRecord(start_ev);
+        
+        for (int i = 0; i < reruns; i++) {
+            //matmul_cuda<<<blocks, threads>>>(xout_d, x_d, w_d, N, N);
 
+            //matmul_cuda_rb<<<rb_blocks, rb_threads>>>(xout_d, x_d, w_d, N, N);
+
+            matmul_cuda_tiled<<<lt_blocks, lt_threads>>>(xout_d, x_d, w_d, N, N);
+        }
+        
+        cudaEventRecord(stop_ev);
+        cudaEventSynchronize(stop_ev);
+        
+        float ms = 0.0f;
+        cudaEventElapsedTime(&ms, start_ev, stop_ev);
+        double seconds = ms / 1000.0;
+        
+        flops = 2LL * N * N;
+        printf("Elapsed: %f s, GFLOPS: %f\n", seconds, ((double)reruns * flops / seconds) / BILLION);
+    }
+    
+    cudaEventDestroy(start_ev);
+    cudaEventDestroy(stop_ev);
+    
+    cudaFree(x_d);
+    cudaFree(xout_d);
+    cudaFree(w_d);
+    cudaDeviceReset();
     return 0;
 }
