@@ -138,7 +138,7 @@ __global__ void matmul_cuda_rb8(float* xout, float* x, float* w, int n, int d) {
 }
 
 __global__ void matmul_cuda_tiled(float* xout, float* x, float* w, int n, int d) {
-    __shared__ float x_tile[TILE];   // shared chunk of x
+    __shared__ float x_tile[TILE];
     
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     int tid = threadIdx.x;
@@ -165,7 +165,59 @@ __global__ void matmul_cuda_tiled(float* xout, float* x, float* w, int n, int d)
     }
 }
 
+__global__ void matmul_sw_pipe(float* xout, float* x, float* w, int n, int d) {
+    __shared__ float x_tile[TILE];
+    __shared__ float x_tile_next[TILE];
+    
+    const int i = blockIdx.x * blockDim.x + threadIdx.x;
+    const int tid = threadIdx.x;
+    int k, m;
+    
+    float val = 0.0f;
 
+    x_tile[tid] = x[0 * TILE + tid];
+    __syncthreads();
+    
+    for(m = 1; m < ((N / TILE) - 1); m+=2){
+        if (i < d) {
+            for (k = 0; k != TILE; k++) {
+                val += w[i * n + ((m - 1) * TILE + k)] * x_tile[k];
+            }
+        }
+        x_tile_next[tid] = x[m * TILE + tid];
+        __syncthreads();
+
+        if (i < d) {
+            for (k = 0; k != TILE; k++) {
+                val += w[i * n + (m * TILE + k)] * x_tile_next[k];
+            }
+        }
+        x_tile[tid] = x[(m + 1) * TILE + tid];
+        __syncthreads();
+    }
+
+    // CLEANUP
+    if (i < d) {
+        for (k = 0; k != TILE; k++) {
+            val += w[i * n + ((m - 1) * TILE + k)] * x_tile[k];
+        }
+    }
+    m = ((n / TILE) - 1);
+    x_tile_next[tid] = x[m * TILE + tid];
+    __syncthreads();
+    
+    if (i < d) {
+        for (k = 0; k != TILE; k++) {
+            val += w[i * n + (m * TILE + k)] * x_tile_next[k];
+        }
+    }
+    __syncthreads();
+    
+    
+    if (i < d) {
+        xout[i] = val;
+    }
+}
 
 
 void initialise(float* x, float* xout, float* w) {
@@ -202,6 +254,10 @@ int main() {
     // lt
     int lt_threads = TILE;
     int lt_blocks = (N + lt_threads - 1) / lt_threads;
+
+    //sw
+    int sw_threads = TILE;
+    int sw_blocks = (N + sw_threads - 1) / sw_threads;
     
     float *x_d, *xout_d, *w_d;
     cudaMalloc(&x_d, N * sizeof(float));
@@ -235,7 +291,9 @@ int main() {
             //matmul_cuda_rb4<<<rb_blocks, rb_threads>>>(xout_d, x_d, w_d, N, N);
             //matmul_cuda_rb8<<<rb_blocks, rb_threads>>>(xout_d, x_d, w_d, N, N);
 
-            matmul_cuda_tiled<<<lt_blocks, lt_threads>>>(xout_d, x_d, w_d, N, N);
+            //matmul_cuda_tiled<<<lt_blocks, lt_threads>>>(xout_d, x_d, w_d, N, N);
+
+            matmul_sw_pipe<<<sw_blocks, sw_threads>>>(xout_d, x_d, w_d, N, N);
         }
         
         cudaEventRecord(stop_ev);
