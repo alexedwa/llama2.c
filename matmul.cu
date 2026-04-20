@@ -7,10 +7,11 @@
 
 #define N 8192 // for others 1024, 2048, 4096, 8192
 #define BILLION 1000000000
-#define TILE 64
+#define TILE 256
 void initialise();
 void matmul(float* xout, float* x, float* w, int n, int d);
 
+// CPU BASELINE
 void matmul(float* xout, float* x, float* w, int n, int d) {
     int i;
     for (i = 0; i < d; i++) {
@@ -21,7 +22,11 @@ void matmul(float* xout, float* x, float* w, int n, int d) {
         xout[i] = val;
     }
 }
+//////////////////
+// CUDA KERNELS //
+//////////////////
 
+// base cuda 
 __global__ void matmul_cuda(float* xout, float* x, float* w, int n, int d) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -33,6 +38,9 @@ __global__ void matmul_cuda(float* xout, float* x, float* w, int n, int d) {
         xout[i] = val;
     }
 }
+
+
+// register blocking with factor 2, 4, 8
 __global__ void matmul_cuda_rb2(float* xout, float* x, float* w, int n, int d) {
     int i = (blockIdx.x * blockDim.x + threadIdx.x) * 2;
     
@@ -53,7 +61,6 @@ __global__ void matmul_cuda_rb2(float* xout, float* x, float* w, int n, int d) {
 
     }
     else if (i < d) {
-        // Tail handling for when d is not divisible by 8
         for (int ii = i; ii < d; ii++) {
             float val = 0.0f;
             for (int k = 0; k < n; k++) {
@@ -85,8 +92,9 @@ __global__ void matmul_cuda_rb4(float* xout, float* x, float* w, int n, int d) {
         xout[i + 3] = val3;
 
     }
+
+    // CLEANUP
     else if (i < d) {
-        // Tail handling for when d is not divisible by 8
         for (int ii = i; ii < d; ii++) {
             float val = 0.0f;
             for (int k = 0; k < n; k++) {
@@ -126,7 +134,6 @@ __global__ void matmul_cuda_rb8(float* xout, float* x, float* w, int n, int d) {
 
     }
     else if (i < d) {
-        // Tail handling for when d is not divisible by 8
         for (int ii = i; ii < d; ii++) {
             float val = 0.0f;
             for (int k = 0; k < n; k++) {
@@ -137,23 +144,36 @@ __global__ void matmul_cuda_rb8(float* xout, float* x, float* w, int n, int d) {
     }
 }
 
+
+// loop tiling with tile size 64 (TILE)
 __global__ void matmul_cuda_tiled(float* xout, float* x, float* w, int n, int d) {
     __shared__ float x_tile[TILE];
+    __shared__ float w_tile[TILE][TILE];
     
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     int tid = threadIdx.x;
     
     float val = 0.0f;
+
+    
     
     for (int k_tile = 0; k_tile < n; k_tile += TILE) {
-        
+
+        /* LOADING DATA TESTING
+        for (int t = tid; t < TILE; t += blockDim.x) {
+            x_tile[t] = x[k_tile + t];
+        }
+        */
+
         x_tile[tid] = x[k_tile + tid];
+        w_tile[tid][0] = w[i * n + (k_tile + tid)];
         
         __syncthreads();
         
         if (i < d) {
+            #pragma unroll
             for (int k = 0; k < TILE; k++) {
-                val += w[i * n + (k_tile + k)] * x_tile[k];
+                val += w[k] * x_tile[k];
             }
         }
         
@@ -165,6 +185,9 @@ __global__ void matmul_cuda_tiled(float* xout, float* x, float* w, int n, int d)
     }
 }
 
+
+
+// software pipelining + lt with tile size 64 (TILE)
 __global__ void matmul_sw_pipe(float* xout, float* x, float* w, int n, int d) {
     __shared__ float x_tile[TILE];
     __shared__ float x_tile_next[TILE];
@@ -178,8 +201,9 @@ __global__ void matmul_sw_pipe(float* xout, float* x, float* w, int n, int d) {
     x_tile[tid] = x[0 * TILE + tid];
     __syncthreads();
     
-    for(m = 1; m < ((N / TILE) - 1); m+=2){
+    for(m = 1; m < ((n / TILE) - 1); m+=2){
         if (i < d) {
+            #pragma unroll
             for (k = 0; k != TILE; k++) {
                 val += w[i * n + ((m - 1) * TILE + k)] * x_tile[k];
             }
@@ -188,6 +212,7 @@ __global__ void matmul_sw_pipe(float* xout, float* x, float* w, int n, int d) {
         __syncthreads();
 
         if (i < d) {
+            #pragma unroll
             for (k = 0; k != TILE; k++) {
                 val += w[i * n + (m * TILE + k)] * x_tile_next[k];
             }
@@ -246,19 +271,20 @@ int main() {
     int threads = 256;
     int blocks = (N + threads - 1) / threads;
     
-    //rb
+    // register blocking dim
     int rb_threads = 256;
     int factor_value = 8;
     int rb_blocks = (N + rb_threads * factor_value - 1) / (rb_threads * factor_value);
     
-    // lt
+    // loop tiling dim
     int lt_threads = TILE;
     int lt_blocks = (N + lt_threads - 1) / lt_threads;
 
-    //sw
+    // software pipelining dim
     int sw_threads = TILE;
     int sw_blocks = (N + sw_threads - 1) / sw_threads;
     
+    /* sending data from host to device (CPU -> GPU) */
     float *x_d, *xout_d, *w_d;
     cudaMalloc(&x_d, N * sizeof(float));
     cudaMalloc(&xout_d, N * sizeof(float));
