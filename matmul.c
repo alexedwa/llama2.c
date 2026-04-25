@@ -164,6 +164,221 @@ void matmul_rb_8(float* xout, float* x, float* w, int n, int d) {
     }
 }
 
+void matmul_rb_12(float* xout, float* x, float* w, int n, int d) {
+    float val_x;
+    for (int i = 0; i < d; i += 12) {
+        float val1 = 0.0f;
+        float val2 = 0.0f;
+        float val3 = 0.0f;
+        float val4 = 0.0f;
+        float val5 = 0.0f;
+        float val6 = 0.0f;
+        float val7 = 0.0f;
+        float val8 = 0.0f;
+        float val9 = 0.0f;
+        float val10 = 0.0f;
+        float val11 = 0.0f;
+        float val12 = 0.0f;
+        
+        for (int j = 0; j < n; j++) {
+            val_x = x[j];
+
+            val1 += w[i * n + j] * val_x;
+            val2 += w[(i + 1) * n + j] * val_x;
+
+            val3 += w[(i + 2) * n + j] * val_x;
+            val4 += w[(i + 3) * n + j] * val_x;
+
+            val5 += w[(i + 4) * n + j] * val_x;
+            val6 += w[(i + 5) * n + j] * val_x;
+
+            val7 += w[(i + 6) * n + j] * val_x;
+            val8 += w[(i + 7) * n + j] * val_x;
+
+            val9 += w[(i + 8) * n + j] * val_x;
+            val10 += w[(i + 9) * n + j] * val_x;
+
+            val11 += w[(i + 10) * n + j] * val_x;
+            val12 += w[(i + 11) * n + j] * val_x;
+        }
+        
+        xout[i] = val1;
+        xout[i + 1] = val2;
+        xout[i + 2] = val3;
+        xout[i + 3] = val4;
+
+        xout[i + 4] = val5;
+        xout[i + 5] = val6;
+        xout[i + 6] = val7;
+        xout[i + 7] = val8;
+
+        xout[i + 8] = val5;
+        xout[i + 9] = val6;
+        xout[i + 10] = val7;
+        xout[i + 11] = val8;
+        
+    }
+}
+
+void matmul_rb_16(float* xout, float* x, float* w, int n, int d) {
+    float val_x;
+    for (int i = 0; i < d; i += 16) {
+        float val1 = 0.0f;
+        float val2 = 0.0f;
+        float val3 = 0.0f;
+        float val4 = 0.0f;
+        float val5 = 0.0f;
+        float val6 = 0.0f;
+        float val7 = 0.0f;
+        float val8 = 0.0f;
+        float val9 = 0.0f;
+        float val10 = 0.0f;
+        float val11 = 0.0f;
+        float val12 = 0.0f;
+        float val13 = 0.0f;
+        float val14 = 0.0f;
+        float val15 = 0.0f;
+        float val16 = 0.0f;
+        
+        for (int j = 0; j < n; j++) {
+            val_x = x[j];
+
+            val1 += w[i * n + j] * val_x;
+            val2 += w[(i + 1) * n + j] * val_x;
+
+            val3 += w[(i + 2) * n + j] * val_x;
+            val4 += w[(i + 3) * n + j] * val_x;
+
+            val5 += w[(i + 4) * n + j] * val_x;
+            val6 += w[(i + 5) * n + j] * val_x;
+
+            val7 += w[(i + 6) * n + j] * val_x;
+            val8 += w[(i + 7) * n + j] * val_x;
+
+            val9 += w[(i + 8) * n + j] * val_x;
+            val10 += w[(i + 9) * n + j] * val_x;
+
+            val11 += w[(i + 10) * n + j] * val_x;
+            val12 += w[(i + 11) * n + j] * val_x;
+
+            val13 += w[(i + 12) * n + j] * val_x;
+            val14 += w[(i + 13) * n + j] * val_x;
+
+            val15 += w[(i + 14) * n + j] * val_x;
+            val16 += w[(i + 15) * n + j] * val_x;
+        }
+        
+        xout[i] = val1;
+        xout[i + 1] = val2;
+        xout[i + 2] = val3;
+        xout[i + 3] = val4;
+
+        xout[i + 4] = val5;
+        xout[i + 5] = val6;
+        xout[i + 6] = val7;
+        xout[i + 7] = val8;
+
+        xout[i + 8] = val5;
+        xout[i + 9] = val6;
+        xout[i + 10] = val7;
+        xout[i + 11] = val8;
+
+        xout[i + 12] = val13;
+        xout[i + 13] = val14;
+        xout[i + 14] = val15;
+        xout[i + 15] = val16;
+        
+    }
+}
+
+void matmul_rb_20(float* xout, float* x, float* w, int n, int d) {
+    float val_x;
+    for (int i = 0; i < d; i += 12) {
+        float val1 = 0.0f;
+        float val2 = 0.0f;
+        float val3 = 0.0f;
+        float val4 = 0.0f;
+        float val5 = 0.0f;
+        float val6 = 0.0f;
+        float val7 = 0.0f;
+        float val8 = 0.0f;
+        float val9 = 0.0f;
+        float val10 = 0.0f;
+        float val11 = 0.0f;
+        float val12 = 0.0f;
+        float val13 = 0.0f;
+        float val14 = 0.0f;
+        float val15 = 0.0f;
+        float val16 = 0.0f;
+        float val17 = 0.0f;
+        float val18 = 0.0f;
+        float val19 = 0.0f;
+        float val20 = 0.0f;
+        
+        for (int j = 0; j < n; j++) {
+            val_x = x[j];
+
+            val1 += w[i * n + j] * val_x;
+            val2 += w[(i + 1) * n + j] * val_x;
+
+            val3 += w[(i + 2) * n + j] * val_x;
+            val4 += w[(i + 3) * n + j] * val_x;
+
+            val5 += w[(i + 4) * n + j] * val_x;
+            val6 += w[(i + 5) * n + j] * val_x;
+
+            val7 += w[(i + 6) * n + j] * val_x;
+            val8 += w[(i + 7) * n + j] * val_x;
+
+            val9 += w[(i + 8) * n + j] * val_x;
+            val10 += w[(i + 9) * n + j] * val_x;
+
+            val11 += w[(i + 10) * n + j] * val_x;
+            val12 += w[(i + 11) * n + j] * val_x;
+
+            val13 += w[(i + 12) * n + j] * val_x;
+            val14 += w[(i + 13) * n + j] * val_x;
+
+            val15 += w[(i + 14) * n + j] * val_x;
+            val16 += w[(i + 15) * n + j] * val_x;
+
+            val17 += w[(i + 16) * n + j] * val_x;
+            val18 += w[(i + 17) * n + j] * val_x;
+
+            val19 += w[(i + 18) * n + j] * val_x;
+            val20 += w[(i + 19) * n + j] * val_x;
+        }
+        
+        xout[i] = val1;
+        xout[i + 1] = val2;
+        xout[i + 2] = val3;
+        xout[i + 3] = val4;
+
+        xout[i + 4] = val5;
+        xout[i + 5] = val6;
+        xout[i + 6] = val7;
+        xout[i + 7] = val8;
+
+        xout[i + 8] = val5;
+        xout[i + 9] = val6;
+        xout[i + 10] = val7;
+        xout[i + 11] = val8;
+
+        xout[i + 12] = val13;
+        xout[i + 13] = val14;
+        xout[i + 14] = val15;
+        xout[i + 15] = val16;
+
+        xout[i + 16] = val17;
+        xout[i + 17] = val18;
+        xout[i + 18] = val19;
+        xout[i + 19] = val20;
+        
+    }
+}
+
+
+
 // Register Blocking Vectorised
 void matmul_vec_rb_2(float* xout, float* x, float* w, int n, int d) {
     __m256 num1, num2, num3, num4, num5, num6;
@@ -1018,6 +1233,33 @@ void matmul_vec_rb_20(float* xout, float* x, float* w, int n, int d) {
 }
 
 // Loop Tiling
+void matmul_loop_tiling(float* xout, float* x, float* w, int n, int d, int TILE) {
+    int i, j;
+    for (i = 0; i < d; i += TILE){
+        float val = 0.0f;
+        for (int ii = i; ii < d && ii < i + TILE; ii++){
+            int j;
+            for (j = 0; j < n; j += TILE){
+                int jj;
+                for (jj = j; jj < n && jj < j + TILE; jj++){
+                    val += w[ii * n + jj] * x[jj];
+                }
+            }
+        }
+        xout[i] = val;
+    }
+    // CLEANUP LOOP
+    for (i = i; i < d; i++){
+        float val = 0.0f;
+        for(j = 0; j < n; j++){
+            val += w[i * n + j] * x[j];
+        }
+        xout[i] = val;
+    }
+}
+
+
+// Loop Tiling Vec
 void matmul_vec_loop_tiling(float* xout, float* x, float* w, int n, int d, int TILE) {
     // 21 + 2 registers needed
 
@@ -1945,27 +2187,25 @@ void initialise(){
 int main() {
     double start, end;
     long long flops;
-    int reruns = 50000;
+    int reruns = 1000;
 
     // Performance cores (0, 2, 4, 6) 0x55
-    // Hyperthreaded cores (1, 3, 5, 7) 0xF0
+    // Hyperthreaded cores (1, 3, 5, 7) 0xAA
     // Efficient cores (8, 9, 10, 11) 0xF00
     
     /*
-    DWORD_PTR mask = 0x55;
+    DWORD_PTR mask = (0xF00);
     
     if(!SetThreadAffinityMask(GetCurrentThread(), mask)) {
         fprintf(stderr, "Error setting thread affinity mask: %lu\n", GetLastError());
         return 1;
     }
     */
-
-
     //initialise();
     
     omp_matmul_full(xout, x, w, N, N, 32);
-    omp_set_num_threads(4);
-    for(int j = 0; j < 5; j++){
+    //omp_set_num_threads(4);
+    for(int j = 0; j < 1; j++){
         initialise();
         start = omp_get_wtime();
         for (int i = 0; i < reruns; i++){
@@ -1978,9 +2218,12 @@ int main() {
             //Register Blocking
             //matmul_rb_2(xout, x, w, N, N);
             //matmul_rb_4(xout, x, w, N, N);
-            //matmulrb_8(xout, x, w, N, N);
+            //matmul_rb_8(xout, x, w, N, N);
+            //matmul_rb_12(xout, x, w, N, N);
+            //matmul_rb_16(xout, x, w, N, N);
+            //matmul_rb_20(xout, x, w, N, N);
 
-            //Vectorised Register Blocking
+            //Vec + RB
             //matmul_vec_rb_2(xout, x, w, N, N);
             //matmul_vec_rb_4(xout, x, w, N, N);
             //matmul_vec_rb_8(xout, x, w, N, N);
@@ -1988,8 +2231,11 @@ int main() {
             //matmul_vec_rb_16(xout, x, w, N, N);
             //matmul_vec_rb_20(xout, x, w, N, N);
 
-            //Vectorised Loop Tiling
-            matmul_vec_loop_tiling(xout, x, w, N, N, 64);
+            //Loop tiling
+            matmul_loop_tiling(xout, x, w, N, N, 64);
+
+            //Vec + RB + LT
+            //matmul_vec_loop_tiling(xout, x, w, N, N, 64);
 
             //OMP Vectorised Loop Tiling
             //omp_matmul_basic(xout, x, w, N, N, 32);
