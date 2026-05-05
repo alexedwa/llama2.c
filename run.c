@@ -249,6 +249,7 @@ void matmul(float* xout, float* x, float* w, int n, int d) {
             
             for (jj = 0; jj < n; jj += TILE){
                 for (j = jj; j < n && j < jj + TILE; j += 8) {
+                    // 16 fused multiply-add
                     xnum1 = _mm256_loadu_ps(&x[j]);
                     
                     wnum1 = _mm256_loadu_ps(&w[i * n + j]);
@@ -308,6 +309,7 @@ void matmul(float* xout, float* x, float* w, int n, int d) {
                 }
             }
             
+            // 16 horizontal adds 
             num2 = _mm256_permute2f128_ps(val1, val1, 1);
             num1 = _mm256_add_ps(val1, num2);
             num1 = _mm256_hadd_ps(num1, num1);

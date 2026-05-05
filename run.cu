@@ -324,6 +324,7 @@ __global__ void matmul(float* xout, float* x, float* w, int n, int d) {
     }
 }
 
+// simple CUDA replacement
 __global__ void RoPE(int dim, int head_size, int kv_dim, float* q, float* k, int pos) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int i = idx * 2;
@@ -343,6 +344,7 @@ __global__ void RoPE(int dim, int head_size, int kv_dim, float* q, float* k, int
     }
 }
 
+// simple CUDA replacement
 __global__ void multihead_attention(int n_heads, int seq_len, float* q, float* att, float* key_cache, float* value_cache, float* xb, int pos, int loff, int kv_dim, int kv_mul, int head_size) {
     int h = blockIdx.x * blockDim.x + threadIdx.x;
     if (h >= n_heads) return;
@@ -377,6 +379,7 @@ __global__ void multihead_attention(int n_heads, int seq_len, float* q, float* a
     }
 }
 
+// simple CUDA replacement
 __global__ void SwiGLU(int hidden_dim, float* hb, float* hb2) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < hidden_dim) {
@@ -387,6 +390,7 @@ __global__ void SwiGLU(int hidden_dim, float* hb, float* hb2) {
     }
 }
 
+// simple CUDA replacement
 __global__ void residual_connection(float* a, float* b, int size) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < size) {
