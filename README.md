@@ -4,8 +4,8 @@
 This is the optimised version of the open source [llama2.c](https://github.com/karpathy/llama2.c) LLM.
 
 ## Run
-
-To run the optimised version of the LLM you will need to:
+### CPU Implementation
+To run the optimised version of the LLM on a CPU you will need to:
 - Clone the repository into a project folder
   - `git clone https://github.com/alexedwa/llama2.c.git`
 
@@ -14,9 +14,24 @@ To run the optimised version of the LLM you will need to:
 
 - Or compile via the terminal
   - `gcc run.c win.c -o llama2.exe -mavx2 -mfma -lm -O3 -fopenmp -march=native`
+ 
+- Download dataset from either [HuggingFace](https://huggingface.co/) or any other dataset repository
 
 - Then finally run the file
-  - `./llama2.exe`
+  - `./llama2.exe <dataset.bin> <arguments>`
+ 
+### GPU Implementation
+To run the optimised version of the LLM on a GPU you will need to:
+- Clone the repository into a project folder
+  - `git clone https://github.com/alexedwa/llama2.c.git`
+
+- Compile via the terminal
+  - `nvcc run.cu win.c -o llama2.exe -O3`
+ 
+- Download dataset from either [HuggingFace](https://huggingface.co/) or any other dataset repository
+
+- Then finally run the file
+  - `./llama2.exe <dataset.bin> <arguments>`
 
 ## Changelog
 - 13/11/25
@@ -52,3 +67,16 @@ To run the optimised version of the LLM you will need to:
 
 - 14/03/26
   - Created different OpenMP functions to test different levels of OpenMP usages
+
+- 3/04/26  
+  - Altered run.cu to help data transfer bottlenecks
+  - Added register blocking to CUDA matmul.cu implementation
+ 
+- 17/04/26
+  - Added loop tiling to CUDA Implementation
+
+- 18/04/26
+  - Added software pipelining to CUDA implementation
+ 
+- 20/04/26
+  - Applied software piplining + loop tiling implementation to main run.cu file
